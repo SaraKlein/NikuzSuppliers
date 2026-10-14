@@ -297,7 +297,7 @@
         }
 
         .purchase-summary {
-            grid-template-columns: repeat(5, minmax(0, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             border: 1px solid #e0e7ec;
             border-radius: 3px;
             background: #f6f8f9;
@@ -482,7 +482,7 @@
             </nav>
         </header>
 
-        <div class="notice" role="note">פרטי הספק אומתו. ניתן למלא את פרטי החשבונית; רשימת הזמנות הרכש והשליחה יחוברו בהמשך.</div>
+        <div class="notice" id="purchase-order-notice" role="status" aria-live="polite">פרטי הספק אומתו.</div>
 
         <form id="invoice-form" novalidate>
             <section class="form-panel" aria-labelledby="supplier-panel-title">
@@ -510,16 +510,15 @@
                         <label for="purchase-order">הזמנת רכש</label>
                         <select id="purchase-order" name="purchaseOrder">
                             <option value="">בחירת הזמנת רכש</option>
-                            <option value="" disabled>רשימת ההזמנות טרם חוברה למערכת</option>
                         </select>
                     </div>
                     <div class="purchase-summary" aria-label="פרטי הזמנת רכש">
-                        <div class="purchase-detail"><span>מספר פרויקט</span><strong>—</strong></div>
-                        <div class="purchase-detail"><span>שם הפרויקט</span><strong>—</strong></div>
-                        <div class="purchase-detail"><span>סכום ההזמנה כולל מע״מ</span><strong>—</strong></div>
-                        <div class="purchase-detail"><span>חשבוניות שאושרו</span><strong>—</strong></div>
-                        <div class="purchase-detail"><span>יתרה זמינה</span><strong>—</strong></div>
+                        <div class="purchase-detail"><span>מזהה הזמנה</span><strong id="purchase-order-id">—</strong></div>
+                        <div class="purchase-detail"><span>פרויקט</span><strong id="purchase-project-title">—</strong></div>
+                        <div class="purchase-detail"><span>תיקיית קבצים</span><strong id="purchase-project-folder">—</strong></div>
                     </div>
+                    <input id="purchase-project-id" name="projectId" type="hidden">
+                    <input id="purchase-project-folder-value" name="projectFolderUrl" type="hidden">
                 </div>
             </section>
 
@@ -592,6 +591,22 @@
         const invoicePage = document.getElementById('invoice-page');
         const invoiceForm = document.getElementById('invoice-form');
         const invoiceStatus = document.getElementById('invoice-status');
+        const purchaseOrderSelect = document.getElementById('purchase-order');
+        const purchaseOrderNotice = document.getElementById('purchase-order-notice');
+        const purchaseOrders = new Map();
+
+        function renderPurchaseOrderDetails() {
+            const order = purchaseOrders.get(purchaseOrderSelect.value);
+            document.getElementById('purchase-order-id').textContent = order ? order.id : '—';
+            document.getElementById('purchase-project-title').textContent = order ? order.project.title : '—';
+            document.getElementById('purchase-project-folder').textContent = order
+                ? order.projectFolderUrl
+                : '—';
+            document.getElementById('purchase-project-id').value = order ? order.project.id : '';
+            document.getElementById('purchase-project-folder-value').value = order
+                ? order.projectFolderUrl
+                : '';
+        }
 
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
@@ -638,9 +653,64 @@
                 if (!result || typeof result.valid !== 'boolean') {
                     status.textContent = 'שירות בדיקת הספקים החזיר תשובה לא תקינה.';
                 } else if (result.valid) {
+                    const supplier = {
+                        supplierNumber: form.elements.supplierNumber.value.trim(),
+                        supplierName: form.elements.supplierName.value.trim(),
+                        supplierEmail: form.elements.supplierEmail.value.trim()
+                    };
+                    const ordersResponse = await fetch('/api/getPurchaseOrders', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(supplier)
+                    });
+                    const ordersBody = await ordersResponse.text();
+                    let ordersResult = null;
+                    try {
+                        if (ordersBody.trim()) {
+                            ordersResult = JSON.parse(ordersBody);
+                        }
+                    } catch {
+                        status.textContent = 'שירות הזמנות הרכש החזיר תשובה לא תקינה.';
+                        return;
+                    }
+
+                    if (!ordersResponse.ok) {
+                        status.textContent = ordersResult && typeof ordersResult.error === 'string'
+                            ? ordersResult.error
+                            : 'לא ניתן לטעון את הזמנות הרכש כרגע.';
+                        return;
+                    }
+
+                    if (
+                        !ordersResult
+                        || !Array.isArray(ordersResult.orders)
+                        || !ordersResult.orders.every((order) => (
+                            order
+                            && typeof order.id === 'string'
+                            && typeof order.title === 'string'
+                            && order.project
+                            && typeof order.project.id === 'string'
+                            && typeof order.project.title === 'string'
+                            && typeof order.projectFolderUrl === 'string'
+                        ))
+                    ) {
+                        status.textContent = 'שירות הזמנות הרכש החזיר תשובה לא תקינה.';
+                        return;
+                    }
+
+                    purchaseOrders.clear();
+                    purchaseOrderSelect.replaceChildren(new Option('בחירת הזמנת רכש', ''));
+                    for (const order of ordersResult.orders) {
+                        purchaseOrders.set(order.id, order);
+                        purchaseOrderSelect.add(new Option(order.title, order.id));
+                    }
+                    purchaseOrderNotice.textContent = ordersResult.orders.length
+                        ? `פרטי הספק אומתו. נמצאו ${ordersResult.orders.length} הזמנות רכש.`
+                        : 'פרטי הספק אומתו, אך לא נמצאו הזמנות רכש המשויכות אליו.';
+                    renderPurchaseOrderDetails();
                     document.getElementById('verified-number').value = form.elements.supplierNumber.value.trim();
-                    document.getElementById('verified-name').value = form.elements.supplierName.value.trim();
-                    document.getElementById('verified-email').value = form.elements.supplierEmail.value.trim();
+                    document.getElementById('verified-name').value = supplier.supplierName;
+                    document.getElementById('verified-email').value = supplier.supplierEmail;
                     loginPage.hidden = true;
                     invoicePage.hidden = false;
                     document.title = 'הגשת חשבונית - פורטל ספקים';
@@ -648,12 +718,14 @@
                     status.textContent = 'לא נמצאה התאמה לפרטים שהוזנו. נא לבדוק אותם ולנסות שוב.';
                 }
             } catch {
-                status.textContent = 'לא ניתן להתחבר לשירות בדיקת הספקים כרגע.';
+                status.textContent = 'לא ניתן להתחבר לשירותי בדיקת הספקים וההזמנות כרגע.';
             } finally {
                 submitButton.disabled = false;
                 submitButton.textContent = 'כניסה';
             }
         });
+
+        purchaseOrderSelect.addEventListener('change', renderPurchaseOrderDetails);
 
         const netAmount = invoiceForm.elements.invoiceNet;
         const vatAmount = invoiceForm.elements.invoiceVat;
@@ -722,6 +794,7 @@
                 ]) {
                     invoiceForm.elements[name].value = '';
                 }
+                renderPurchaseOrderDetails();
                 invoiceStatus.textContent = 'החשבונית נשמרה ונשלחה בהצלחה.';
                 invoiceStatus.classList.add('is-success');
             } catch {
@@ -735,6 +808,10 @@
         document.getElementById('logout-button').addEventListener('click', () => {
             invoiceForm.reset();
             form.reset();
+            purchaseOrders.clear();
+            purchaseOrderSelect.replaceChildren(new Option('בחירת הזמנת רכש', ''));
+            purchaseOrderNotice.textContent = 'פרטי הספק אומתו.';
+            renderPurchaseOrderDetails();
             invoiceStatus.textContent = '';
             status.textContent = '';
             loginPage.hidden = false;
