@@ -225,13 +225,13 @@ app.http('getPurchaseOrders', {
       const orders = await getItems(
         site.id,
         ordersList.id,
-        ['Title', `${supplierColumn.name}Id`],
+        ['Title', 'Id'],//, `${supplierColumn.name}Id`],
         accessToken,
         'purchase order title lookup'
       );
       const result = orders
-        .filter((order) => lookupIds((order.fields || {})[`${supplierColumn.name}LookupId`])
-          .some((id) => supplierIds.has(id)))
+      //  .filter((order) => lookupIds((order.fields || {})[`${supplierColumn.name}LookupId`])
+        //  .some((id) => supplierIds.has(id)))
         .map((order) => {
           const fields = order.fields || {};
           return {
