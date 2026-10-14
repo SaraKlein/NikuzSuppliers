@@ -1,7 +1,7 @@
 const { app } = require('@azure/functions');
 
 const graphBaseUrl = 'https://graph.microsoft.com/v1.0';
-const sitePath = '/sites/SaraTest';
+const sitePath = '/sites/Projects';
 const siteHost = 'crdatasystems.sharepoint.com';
 const listName = 'ספקים';
 
