@@ -154,24 +154,6 @@ function lookupIds(value) {
   return String(value).split(',').map((id) => id.trim()).filter(Boolean);
 }
 
-function fieldText(value) {
-  if (typeof value === 'string' || typeof value === 'number') {
-    return String(value);
-  }
-  if (value && typeof value === 'object') {
-    if (typeof value.Url === 'string') {
-      return value.Url;
-    }
-    if (typeof value.url === 'string') {
-      return value.url;
-    }
-    if (typeof value.Description === 'string') {
-      return value.Description;
-    }
-  }
-  return '';
-}
-
 app.http('getPurchaseOrders', {
   methods: ['POST'],
   authLevel: 'anonymous',
@@ -235,44 +217,26 @@ app.http('getPurchaseOrders', {
         column.lookup
         && String(column.lookup.listId).toLowerCase() === String(supplierList.id).toLowerCase()
       ));
-      const projectColumn = columns.find((column) => (
-        column.name === 'Project' || column.displayName === 'Project'
-      ));
-      const folderColumn = columns.find((column) => (
-        column.name === 'ProjectFolderUrl' || column.displayName === 'ProjectFolderUrl'
-      ));
 
-      if (!supplierColumn || !projectColumn || !projectColumn.lookup || !folderColumn) {
-        throw new Error('The orders list is missing the expected supplier, Project lookup, or ProjectFolderUrl column');
+      if (!supplierColumn) {
+        throw new Error('The orders list does not have a supplier lookup column pointing to the supplier list');
       }
 
-      const [orders, projects] = await Promise.all([
-        getItems(
-          site.id,
-          ordersList.id,
-          ['Title', 'Suppliers2Id', 'ProjectId', folderColumn.name],
-          accessToken,
-          'purchase order lookup'
-        ),
-        getItems(site.id, projectColumn.lookup.listId, ['Title'], accessToken, 'project lookup')
-      ]);
-      const projectTitles = new Map(
-        projects.map((project) => [String(project.id), String((project.fields || {}).Title || '')])
+      const orders = await getItems(
+        site.id,
+        ordersList.id,
+        ['Title', `${supplierColumn.name}Id`],
+        accessToken,
+        'purchase order title lookup'
       );
       const result = orders
         .filter((order) => lookupIds((order.fields || {})[`${supplierColumn.name}LookupId`])
           .some((id) => supplierIds.has(id)))
         .map((order) => {
           const fields = order.fields || {};
-          const projectId = lookupIds(fields[`${projectColumn.name}LookupId`])[0] || '';
           return {
             id: String(order.id),
-            title: fieldText(fields.Title),
-            project: {
-              id: projectId,
-              title: projectTitles.get(projectId) || ''
-            },
-            projectFolderUrl: fieldText(fields[folderColumn.name])
+            title: typeof fields.Title === 'string' ? fields.Title : ''
           };
         })
         .filter((order) => order.title);
