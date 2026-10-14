@@ -227,24 +227,34 @@ app.http('getPurchaseOrders', {
         getItems(
           site.id,
           projectColumn.lookup.listId,
-          ['Title'],
+          ['Title', 'ProjectFolderUrl'],
           accessToken,
           'project lookup'
         )
       ]);
-      const projectTitles = new Map(
-        projects.map((project) => [String(project.id), String((project.fields || {}).Title || '')])
+      const projectDetails = new Map(
+        projects.map((project) => {
+          const fields = project.fields || {};
+          return [String(project.id), {
+            title: typeof fields.Title === 'string' ? fields.Title : '',
+            projectFolderUrl: typeof fields.ProjectFolderUrl === 'string'
+              ? fields.ProjectFolderUrl
+              : ''
+          }];
+        })
       );
       const result = orders
         .filter((order) => normalize((order.fields || {}).SupplierText) === normalize(supplierName))
         .map((order) => {
           const fields = order.fields || {};
           const projectId = lookupId(fields[`${projectColumn.name}LookupId`]);
+          const project = projectDetails.get(projectId);
           return {
             id: String(order.id),
             title: typeof fields.Title === 'string' ? fields.Title : '',
             projectId,
-            projectTitle: projectTitles.get(projectId) || ''
+            projectTitle: project ? project.title : '',
+            projectFolderUrl: project ? project.projectFolderUrl : ''
           };
         })
         .filter((order) => order.title);

@@ -10,8 +10,7 @@ The `POST /api/getPurchaseOrders` endpoint repeats that supplier check, then
 returns items from the `הזמנות` list whose `SupplierText` field matches the
 verified supplier name. The current diagnostic response includes each order's
 SharePoint item ID and `Title`, plus the referenced project's ID and `Title`
-from the `Project` lookup. The folder field remains excluded while the order
-lookup is being tested.
+and `ProjectFolderUrl` from the `Project` lookup target.
 
 The app registration needs read access to the Projects site to validate
 suppliers and read the orders and projects lists.

@@ -601,9 +601,13 @@
             document.getElementById('purchase-project-title').textContent = order
                 ? order.projectTitle
                 : '—';
-            document.getElementById('purchase-project-folder').textContent = '—';
+            document.getElementById('purchase-project-folder').textContent = order
+                ? order.projectFolderUrl
+                : '—';
             document.getElementById('purchase-project-id').value = order ? order.projectId : '';
-            document.getElementById('purchase-project-folder-value').value = '';
+            document.getElementById('purchase-project-folder-value').value = order
+                ? order.projectFolderUrl
+                : '';
         }
 
         form.addEventListener('submit', async (event) => {
@@ -682,6 +686,7 @@
                                 && typeof order.title === 'string'
                                 && typeof order.projectId === 'string'
                                 && typeof order.projectTitle === 'string'
+                                && typeof order.projectFolderUrl === 'string'
                             ))
                         ) {
                             for (const order of ordersResult.orders) {
