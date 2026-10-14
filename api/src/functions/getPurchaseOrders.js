@@ -105,20 +105,10 @@ async function getList(siteId, displayName, accessToken) {
   return list;
 }
 
-async function getColumns(siteId, listId, accessToken) {
-  const url = new URL(`${graphBaseUrl}/sites/${siteId}/lists/${listId}/columns`);
-  url.searchParams.set('$select', 'name,displayName,lookup');
-  const result = await graphGet(url, accessToken, 'list columns lookup');
-  return result.value;
-}
-
-async function getItems(siteId, listId, selectFields, accessToken, operation, filter = "") {
+async function getItems(siteId, listId, selectFields, accessToken, operation) {
   let url = new URL(`${graphBaseUrl}/sites/${siteId}/lists/${listId}/items`);
   url.searchParams.set('$expand', `fields($select=${selectFields.join(',')})`);
   url.searchParams.set('$top', '200');
-  if (filter !== "") {
-    url.searchParams.set('$filter', filter);
-  }
   const items = [];
 
   while (url) {
@@ -133,28 +123,13 @@ async function getItems(siteId, listId, selectFields, accessToken, operation, fi
 async function findVerifiedSupplierIds(siteId, values, accessToken) {
   const supplierList = await getList(siteId, supplierListName, accessToken);
   const items = await getItems(siteId, supplierList.id, supplierFields, accessToken, 'supplier verification');
-  const ids = new Set();
 
-  for (const item of items) {
+  return items.some((item) => {
     const fields = item.fields || {};
-    if (
-      normalize(fields.field_1) === values.supplierNumber
+    return normalize(fields.field_1) === values.supplierNumber
       && normalize(fields.Title) === values.supplierName
-      && normalize(fields.field_7) === values.supplierEmail
-    ) {
-      ids.add(String(item.id));
-    }
-  }
-
-  return { supplierList, ids };
-}
-
-function lookupIds(value) {
-  if (typeof value !== 'string' && typeof value !== 'number') {
-    return [];
-  }
-
-  return String(value).split(',').map((id) => id.trim()).filter(Boolean);
+      && normalize(fields.field_7) === values.supplierEmail;
+  });
 }
 
 app.http('getPurchaseOrders', {
@@ -204,38 +179,26 @@ app.http('getPurchaseOrders', {
         accessToken,
         'site lookup'
       );
-      const { supplierList, ids: supplierIds } = await findVerifiedSupplierIds(site.id, {
+      const supplierIsValid = await findVerifiedSupplierIds(site.id, {
         supplierNumber: normalize(supplierNumber),
         supplierName: normalize(supplierName),
         supplierEmail: normalize(supplierEmail)
       }, accessToken);
 
-      if (!supplierIds.size) {
+      if (!supplierIsValid) {
         return jsonResponse(403, { error: 'פרטי הספק לא אומתו מול SharePoint.' });
       }
 
       const ordersList = await getList(site.id, ordersListName, accessToken);
-      const columns = await getColumns(site.id, ordersList.id, accessToken);
-      const supplierColumn = columns.find((column) => (
-        column.lookup
-        && String(column.lookup.listId).toLowerCase() === String(supplierList.id).toLowerCase()
-      ));
-
-      if (!supplierColumn) {
-        throw new Error('The orders list does not have a supplier lookup column pointing to the supplier list');
-      }
-
       const orders = await getItems(
         site.id,
         ordersList.id,
-        ['Title', 'Id'],//, `${supplierColumn.name}Id`],
+        ['Title', 'SupplierText', 'Id'],
         accessToken,
-        'purchase order title lookup',
-        'SupplierText eq \'' + supplierNumber.replace(/'/g, "''") + '\''
+        'purchase order title lookup'
       );
       const result = orders
-        //  .filter((order) => lookupIds((order.fields || {})[`${supplierColumn.name}LookupId`])
-        //  .some((id) => supplierIds.has(id)))
+        .filter((order) => normalize((order.fields || {}).SupplierText) === normalize(supplierName))
         .map((order) => {
           const fields = order.fields || {};
           return {
