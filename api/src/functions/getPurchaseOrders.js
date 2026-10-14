@@ -105,6 +105,13 @@ async function getList(siteId, displayName, accessToken) {
   return list;
 }
 
+async function getColumns(siteId, listId, accessToken) {
+  const url = new URL(`${graphBaseUrl}/sites/${siteId}/lists/${listId}/columns`);
+  url.searchParams.set('$select', 'name,displayName,lookup');
+  const result = await graphGet(url, accessToken, 'list columns lookup');
+  return result.value;
+}
+
 async function getItems(siteId, listId, selectFields, accessToken, operation) {
   let url = new URL(`${graphBaseUrl}/sites/${siteId}/lists/${listId}/items`);
   url.searchParams.set('$expand', `fields($select=${selectFields.join(',')})`);
@@ -118,6 +125,14 @@ async function getItems(siteId, listId, selectFields, accessToken, operation) {
   }
 
   return items;
+}
+
+function lookupId(value) {
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    return '';
+  }
+
+  return String(value).split(',')[0].trim();
 }
 
 async function findVerifiedSupplierIds(siteId, values, accessToken) {
@@ -190,20 +205,46 @@ app.http('getPurchaseOrders', {
       }
 
       const ordersList = await getList(site.id, ordersListName, accessToken);
-      const orders = await getItems(
-        site.id,
-        ordersList.id,
-        ['Title', 'SupplierText', 'Id'],
-        accessToken,
-        'purchase order title lookup'
+      const columns = await getColumns(site.id, ordersList.id, accessToken);
+      const projectColumn = columns.find((column) => (
+        (column.name === 'Project' || column.displayName === 'Project')
+        && column.lookup
+        && column.lookup.listId
+      ));
+
+      if (!projectColumn) {
+        throw new Error('The orders list does not have a Project lookup column');
+      }
+
+      const [orders, projects] = await Promise.all([
+        getItems(
+          site.id,
+          ordersList.id,
+          ['Title', 'SupplierText', `${projectColumn.name}LookupId`],
+          accessToken,
+          'purchase order lookup'
+        ),
+        getItems(
+          site.id,
+          projectColumn.lookup.listId,
+          ['Title'],
+          accessToken,
+          'project lookup'
+        )
+      ]);
+      const projectTitles = new Map(
+        projects.map((project) => [String(project.id), String((project.fields || {}).Title || '')])
       );
       const result = orders
         .filter((order) => normalize((order.fields || {}).SupplierText) === normalize(supplierName))
         .map((order) => {
           const fields = order.fields || {};
+          const projectId = lookupId(fields[`${projectColumn.name}LookupId`]);
           return {
             id: String(order.id),
-            title: typeof fields.Title === 'string' ? fields.Title : ''
+            title: typeof fields.Title === 'string' ? fields.Title : '',
+            projectId,
+            projectTitle: projectTitles.get(projectId) || ''
           };
         })
         .filter((order) => order.title);

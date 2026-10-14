@@ -598,9 +598,11 @@
         function renderPurchaseOrderDetails() {
             const order = purchaseOrders.get(purchaseOrderSelect.value);
             document.getElementById('purchase-order-id').textContent = order ? order.id : '—';
-            document.getElementById('purchase-project-title').textContent = '—';
+            document.getElementById('purchase-project-title').textContent = order
+                ? order.projectTitle
+                : '—';
             document.getElementById('purchase-project-folder').textContent = '—';
-            document.getElementById('purchase-project-id').value = '';
+            document.getElementById('purchase-project-id').value = order ? order.projectId : '';
             document.getElementById('purchase-project-folder-value').value = '';
         }
 
@@ -678,6 +680,8 @@
                                 order
                                 && typeof order.id === 'string'
                                 && typeof order.title === 'string'
+                                && typeof order.projectId === 'string'
+                                && typeof order.projectTitle === 'string'
                             ))
                         ) {
                             for (const order of ordersResult.orders) {

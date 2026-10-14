@@ -9,8 +9,9 @@ The matching SharePoint internal field names are `field_1`, `Title`, and
 The `POST /api/getPurchaseOrders` endpoint repeats that supplier check, then
 returns items from the `הזמנות` list whose `SupplierText` field matches the
 verified supplier name. The current diagnostic response includes each order's
-SharePoint item ID and `Title`; project and folder fields are temporarily
-excluded while the order-title lookup is being tested.
+SharePoint item ID and `Title`, plus the referenced project's ID and `Title`
+from the `Project` lookup. The folder field remains excluded while the order
+lookup is being tested.
 
 The app registration needs read access to the Projects site to validate
 suppliers and read the orders and projects lists.
