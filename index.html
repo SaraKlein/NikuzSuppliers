@@ -658,63 +658,55 @@
                         supplierName: form.elements.supplierName.value.trim(),
                         supplierEmail: form.elements.supplierEmail.value.trim()
                     };
-                  /*  const ordersResponse = await fetch('/api/getPurchaseOrders', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(supplier)
-                    });
-                    const ordersBody = await ordersResponse.text();
-                    let ordersResult = null;
-                    try {
-                        if (ordersBody.trim()) {
-                            ordersResult = JSON.parse(ordersBody);
-                        }
-                    } catch {
-                        status.textContent = 'שירות הזמנות הרכש החזיר תשובה לא תקינה.';
-                        return;
-                    }
-
-                    if (!ordersResponse.ok) {
-                        status.textContent = ordersResult && typeof ordersResult.error === 'string'
-                            ? ordersResult.error
-                            : 'לא ניתן לטעון את הזמנות הרכש כרגע.';
-                        return;
-                    }
-
-                    if (
-                        !ordersResult
-                        || !Array.isArray(ordersResult.orders)
-                        || !ordersResult.orders.every((order) => (
-                            order
-                            && typeof order.id === 'string'
-                            && typeof order.title === 'string'
-                            && order.project
-                            && typeof order.project.id === 'string'
-                            && typeof order.project.title === 'string'
-                            && typeof order.projectFolderUrl === 'string'
-                        ))
-                    ) {
-                        status.textContent = 'שירות הזמנות הרכש החזיר תשובה לא תקינה.';
-                        return;
-                    }
-
+                    const orderListUnavailableMessage =
+                        'רשימת הזמנות הרכש עדיין לא מחוברת. ניתן להמשיך למילוי הטופס.';
+                    let noticeMessage = orderListUnavailableMessage;
                     purchaseOrders.clear();
-                    */
-                   purchaseOrderSelect.replaceChildren(new Option('בחירת הזמנת רכש', ''));
-                    /*for (const order of ordersResult.orders) {
-                        purchaseOrders.set(order.id, order);
-                        purchaseOrderSelect.add(new Option(order.title, order.id));
+                    purchaseOrderSelect.replaceChildren(new Option('בחירת הזמנת רכש', ''));
+
+                    try {
+                        const ordersResponse = await fetch('/api/getPurchaseOrders', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(supplier)
+                        });
+                        if (!ordersResponse.ok) {
+                            throw new Error(`Purchase order request failed (${ordersResponse.status})`);
+                        }
+
+                        const ordersResult = await ordersResponse.json();
+                        if (
+                            ordersResult
+                            && Array.isArray(ordersResult.orders)
+                            && ordersResult.orders.every((order) => (
+                                order
+                                && typeof order.id === 'string'
+                                && typeof order.title === 'string'
+                                && order.project
+                                && typeof order.project.id === 'string'
+                                && typeof order.project.title === 'string'
+                                && typeof order.projectFolderUrl === 'string'
+                            ))
+                        ) {
+                            for (const order of ordersResult.orders) {
+                                purchaseOrders.set(order.id, order);
+                                purchaseOrderSelect.add(new Option(order.title, order.id));
+                            }
+                            noticeMessage = ordersResult.orders.length
+                                ? `פרטי הספק אומתו. נמצאו ${ordersResult.orders.length} הזמנות רכש.`
+                                : 'פרטי הספק אומתו, אך לא נמצאו הזמנות רכש המשויכות אליו.';
+                        }
+                    } catch (error) {
+                        console.error('Could not load purchase orders.', error);
                     }
-                    purchaseOrderNotice.textContent = ordersResult.orders.length
-                        ? `פרטי הספק אומתו. נמצאו ${ordersResult.orders.length} הזמנות רכש.`
-                        : 'פרטי הספק אומתו, אך לא נמצאו הזמנות רכש המשויכות אליו.';
+                    purchaseOrderNotice.textContent = noticeMessage;
                     renderPurchaseOrderDetails();
-                    document.getElementById('verified-number').value = form.elements.supplierNumber.value.trim();
+                    document.getElementById('verified-number').value = supplier.supplierNumber;
                     document.getElementById('verified-name').value = supplier.supplierName;
                     document.getElementById('verified-email').value = supplier.supplierEmail;
                     loginPage.hidden = true;
                     invoicePage.hidden = false;
-                    document.title = 'הגשת חשבונית - פורטל ספקים';*/
+                    document.title = 'הגשת חשבונית - פורטל ספקים';
                 } else {
                     status.textContent = 'לא נמצאה התאמה לפרטים שהוזנו. נא לבדוק אותם ולנסות שוב.';
                 }
