@@ -658,7 +658,7 @@
                         supplierName: form.elements.supplierName.value.trim(),
                         supplierEmail: form.elements.supplierEmail.value.trim()
                     };
-                    const ordersResponse = await fetch('/api/getPurchaseOrders', {
+                  /*  const ordersResponse = await fetch('/api/getPurchaseOrders', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(supplier)
@@ -699,8 +699,9 @@
                     }
 
                     purchaseOrders.clear();
-                    purchaseOrderSelect.replaceChildren(new Option('בחירת הזמנת רכש', ''));
-                    for (const order of ordersResult.orders) {
+                    */
+                   purchaseOrderSelect.replaceChildren(new Option('בחירת הזמנת רכש', ''));
+                    /*for (const order of ordersResult.orders) {
                         purchaseOrders.set(order.id, order);
                         purchaseOrderSelect.add(new Option(order.title, order.id));
                     }
@@ -713,7 +714,7 @@
                     document.getElementById('verified-email').value = supplier.supplierEmail;
                     loginPage.hidden = true;
                     invoicePage.hidden = false;
-                    document.title = 'הגשת חשבונית - פורטל ספקים';
+                    document.title = 'הגשת חשבונית - פורטל ספקים';*/
                 } else {
                     status.textContent = 'לא נמצאה התאמה לפרטים שהוזנו. נא לבדוק אותם ולנסות שוב.';
                 }
