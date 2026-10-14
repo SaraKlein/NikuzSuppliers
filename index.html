@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f7f4">
+    <title>כניסת ספקים</title>
+    <style>
+        :root {
+            color-scheme: light;
+            font-family: Arial, "Noto Sans Hebrew", sans-serif;
+            color: #123b60;
+            background: #f3f6f8;
+            font-synthesis: none;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            min-width: 320px;
+            min-height: 100vh;
+            margin: 0;
+            background: #f3f6f8;
+        }
+
+        [hidden] {
+            display: none !important;
+        }
+
+        .login-card {
+            margin: 48px auto;
+            width: min(100%, 460px);
+            padding: 44px;
+            border: 1px solid #e1e8ed;
+            border-radius: 20px;
+            background: #fff;
+            box-shadow: 0 18px 55px rgba(28, 54, 72, 0.09);
+        }
+
+        .brand-mark {
+            width: 48px;
+            height: 48px;
+            display: grid;
+            place-items: center;
+            margin-bottom: 26px;
+            border-radius: 14px;
+            background: #e7f2f9;
+            color: #0875ad;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .eyebrow {
+            margin: 0 0 8px;
+            color: #0875ad;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(27px, 6vw, 34px);
+            letter-spacing: -0.7px;
+        }
+
+        .intro {
+            margin: 12px 0 30px;
+            color: #657784;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        form {
+            display: grid;
+            gap: 19px;
+        }
+
+        .field {
+            display: grid;
+            gap: 8px;
+        }
+
+        label {
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        input {
+            width: 100%;
+            height: 50px;
+            padding: 0 14px;
+            border: 1px solid #d5dfe6;
+            border-radius: 9px;
+            outline: none;
+            background: #fff;
+            color: #123b60;
+            font: inherit;
+            transition: border-color 150ms ease, box-shadow 150ms ease;
+        }
+
+        input::placeholder {
+            color: #a2aca6;
+        }
+
+        input:focus {
+            border-color: #1685b8;
+            box-shadow: 0 0 0 3px rgba(22, 133, 184, 0.14);
+        }
+
+        .submit-button {
+            min-height: 52px;
+            margin-top: 5px;
+            border: 0;
+            border-radius: 9px;
+            background: #078e88;
+            color: #fff;
+            cursor: pointer;
+            font: inherit;
+            font-size: 16px;
+            font-weight: 700;
+            transition: background-color 150ms ease, transform 150ms ease;
+        }
+
+        .submit-button:hover {
+            background: #087a75;
+        }
+
+        .submit-button:active {
+            transform: translateY(1px);
+        }
+
+        .submit-button:focus-visible {
+            outline: 3px solid #a8d7e9;
+            outline-offset: 3px;
+        }
+
+        .status {
+            min-height: 0;
+            margin: 0;
+            color: #8a4b16;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .status:not(:empty) {
+            padding: 11px 12px;
+            border-radius: 8px;
+            background: #fff5e9;
+        }
+
+        .status.is-success {
+            color: #176a54;
+            background: #edf7f5;
+        }
+
+        .portal {
+            width: min(100% - 40px, 1240px);
+            margin: 0 auto;
+            padding-bottom: 36px;
+        }
+
+        .portal-header {
+            min-height: 54px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            margin: 0 calc((min(100vw, 100%) - min(100vw - 40px, 1240px)) / -2);
+            padding: 0 max(20px, calc((100vw - 1240px) / 2));
+            background: #0873a8;
+            color: #fff;
+        }
+
+        .portal-title {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .portal-nav {
+            display: flex;
+            align-self: stretch;
+            align-items: stretch;
+            gap: 22px;
+        }
+
+        .portal-nav span,
+        .portal-nav button {
+            display: inline-flex;
+            align-items: center;
+            border: 0;
+            border-bottom: 3px solid transparent;
+            background: transparent;
+            color: #e9f5fb;
+            font: inherit;
+            text-decoration: none;
+        }
+
+        .portal-nav .active {
+            border-bottom-color: #fff;
+            color: #fff;
+            font-weight: 700;
+        }
+
+        .portal-nav button {
+            cursor: pointer;
+        }
+
+        .notice {
+            margin: 12px 0;
+            padding: 13px 18px;
+            border: 1px solid #c6e3f1;
+            border-radius: 4px;
+            background: #e4f4fc;
+            color: #15547c;
+            font-size: 14px;
+        }
+
+        .form-panel {
+            margin-top: 10px;
+            border: 1px solid #d9e2e8;
+            border-radius: 3px;
+            background: #fff;
+        }
+
+        .panel-title {
+            margin: 0;
+            padding: 8px 14px;
+            background: #e8eef2;
+            color: #17476b;
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        .panel-content {
+            padding: 12px 16px 14px;
+        }
+
+        .supplier-summary,
+        .purchase-summary,
+        .invoice-grid {
+            display: grid;
+            gap: 12px 18px;
+        }
+
+        .supplier-summary {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .purchase-picker {
+            display: grid;
+            grid-template-columns: 110px minmax(0, 1fr);
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 12px;
+        }
+
+        .purchase-picker label,
+        .invoice-field label {
+            color: #315873;
+            font-size: 13px;
+            font-weight: 400;
+        }
+
+        .portal input,
+        .portal select,
+        .portal textarea {
+            width: 100%;
+            min-width: 0;
+            height: 36px;
+            min-height: 36px;
+            padding: 7px 10px;
+            border: 1px solid #cbd6de;
+            border-radius: 3px;
+            background: #fff;
+            color: #243e55;
+            font: inherit;
+            font-size: 13px;
+        }
+
+        .portal input[readonly] {
+            background: #f1f4f6;
+        }
+
+        .portal input:focus,
+        .portal select:focus,
+        .portal textarea:focus {
+            border-color: #1685b8;
+            outline: 2px solid rgba(22, 133, 184, 0.14);
+        }
+
+        #invoice-form {
+            display: block;
+        }
+
+        .purchase-summary {
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            border: 1px solid #e0e7ec;
+            border-radius: 3px;
+            background: #f6f8f9;
+        }
+
+        .purchase-detail {
+            display: grid;
+            gap: 5px;
+            padding: 9px 10px;
+            color: #315873;
+            font-size: 12px;
+        }
+
+        .purchase-detail strong {
+            color: #16436a;
+            font-size: 14px;
+        }
+
+        .invoice-grid {
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        }
+
+        .invoice-field {
+            display: grid;
+            grid-template-columns: minmax(90px, 145px) minmax(0, 1fr);
+            align-items: center;
+            gap: 12px;
+        }
+
+        .invoice-field.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .invoice-field textarea {
+            min-height: 64px;
+            resize: vertical;
+        }
+
+        .file-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            align-items: center;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .file-row label {
+            color: #315873;
+            font-size: 13px;
+        }
+
+        .file-row input {
+            height: auto;
+            padding: 5px;
+        }
+
+        .file-row input::file-selector-button {
+            min-height: 28px;
+            margin-inline-end: 10px;
+            border: 1px solid #cbd6de;
+            border-radius: 3px;
+            background: #f1f4f6;
+            color: #315873;
+            cursor: pointer;
+            font: inherit;
+        }
+
+        .required-mark {
+            color: #c62828;
+            font-weight: 700;
+        }
+
+        .invoice-submit {
+            display: block;
+            min-width: 230px;
+            margin: 12px auto 0;
+            padding-inline: 22px;
+        }
+
+        .portal-status {
+            max-width: 620px;
+            margin: 12px auto 0;
+            text-align: center;
+        }
+
+        @media (max-width: 520px) {
+            .login-card {
+                padding: 32px 24px;
+            }
+        }
+
+        @media (max-width: 700px) {
+            .portal {
+                width: min(100% - 24px, 1240px);
+            }
+
+            .portal-header {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 6px;
+                margin-inline: -12px;
+                padding: 12px;
+            }
+
+            .portal-nav {
+                min-height: 34px;
+                gap: 16px;
+                font-size: 13px;
+            }
+
+            .supplier-summary,
+            .purchase-summary {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .invoice-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .invoice-field.full-width {
+                grid-column: auto;
+            }
+        }
+
+        @media (max-width: 440px) {
+            .purchase-picker {
+                grid-template-columns: 1fr;
+                gap: 7px;
+            }
+
+            .invoice-field {
+                grid-template-columns: 1fr;
+                gap: 6px;
+            }
+
+            .file-row {
+                grid-template-columns: 1fr;
+                gap: 6px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main class="login-card" id="login-page">
+        <div class="brand-mark" aria-hidden="true">ס</div>
+        <p class="eyebrow">פורטל ספקים</p>
+        <h1>כניסת ספקים</h1>
+        <p class="intro">יש למלא את פרטי הספק כדי להמשיך.</p>
+
+        <form id="supplier-login" novalidate>
+            <div class="field">
+                <label for="supplier-number">מספר ספק</label>
+                <input id="supplier-number" name="supplierNumber" type="text" placeholder="לדוגמה: 123456"
+                    autocomplete="off" required>
+            </div>
+
+            <div class="field">
+                <label for="supplier-name">שם ספק</label>
+                <input id="supplier-name" name="supplierName" type="text" placeholder="שם העסק או הספק"
+                    autocomplete="organization" required>
+            </div>
+
+            <div class="field">
+                <label for="supplier-email">דואר אלקטרוני</label>
+                <input id="supplier-email" name="supplierEmail" type="email" placeholder="name@example.com"
+                    autocomplete="email" dir="ltr" required>
+            </div>
+
+            <button class="submit-button" type="submit">כניסה</button>
+            <p class="status" id="form-status" role="status" aria-live="polite"></p>
+        </form>
+    </main>
+
+    <main class="portal" id="invoice-page" hidden>
+        <header class="portal-header">
+            <h1 class="portal-title">פורטל ספקים - הגשת חשבונית</h1>
+            <nav class="portal-nav" aria-label="ניווט ראשי">
+                <span class="active" aria-current="page">הגשת חשבונית</span>
+                <span>החשבוניות שלי</span>
+                <button type="button" id="logout-button">יציאה</button>
+            </nav>
+        </header>
+
+        <div class="notice" role="note">פרטי הספק אומתו. ניתן למלא את פרטי החשבונית; רשימת הזמנות הרכש והשליחה יחוברו בהמשך.</div>
+
+        <form id="invoice-form" novalidate>
+            <section class="form-panel" aria-labelledby="supplier-panel-title">
+                <h2 class="panel-title" id="supplier-panel-title">פרטי הספק</h2>
+                <div class="panel-content supplier-summary">
+                    <div class="invoice-field">
+                        <label for="verified-number">מספר ספק</label>
+                        <input id="verified-number" name="verifiedNumber" readonly>
+                    </div>
+                    <div class="invoice-field">
+                        <label for="verified-name">שם הספק</label>
+                        <input id="verified-name" name="verifiedName" readonly>
+                    </div>
+                    <div class="invoice-field">
+                        <label for="verified-email">דוא״ל</label>
+                        <input id="verified-email" name="verifiedEmail" type="email" readonly dir="ltr">
+                    </div>
+                </div>
+            </section>
+
+            <section class="form-panel" aria-labelledby="purchase-panel-title">
+                <h2 class="panel-title" id="purchase-panel-title">בחירת הזמנת רכש</h2>
+                <div class="panel-content">
+                    <div class="purchase-picker">
+                        <label for="purchase-order">הזמנת רכש</label>
+                        <select id="purchase-order" name="purchaseOrder">
+                            <option value="">בחירת הזמנת רכש</option>
+                            <option value="" disabled>רשימת ההזמנות טרם חוברה למערכת</option>
+                        </select>
+                    </div>
+                    <div class="purchase-summary" aria-label="פרטי הזמנת רכש">
+                        <div class="purchase-detail"><span>מספר פרויקט</span><strong>—</strong></div>
+                        <div class="purchase-detail"><span>שם הפרויקט</span><strong>—</strong></div>
+                        <div class="purchase-detail"><span>סכום ההזמנה כולל מע״מ</span><strong>—</strong></div>
+                        <div class="purchase-detail"><span>חשבוניות שאושרו</span><strong>—</strong></div>
+                        <div class="purchase-detail"><span>יתרה זמינה</span><strong>—</strong></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="form-panel" aria-labelledby="invoice-panel-title">
+                <h2 class="panel-title" id="invoice-panel-title">פרטי החשבונית</h2>
+                <div class="panel-content invoice-grid">
+                    <div class="invoice-field">
+                        <label for="invoice-number">מספר חשבונית</label>
+                        <input id="invoice-number" name="invoiceNumber" required maxlength="64">
+                    </div>
+                    <div class="invoice-field">
+                        <label for="invoice-date">תאריך חשבונית</label>
+                        <input id="invoice-date" name="invoiceDate" type="date" required>
+                    </div>
+                    <div class="invoice-field">
+                        <label for="invoice-net">סכום לפני מע״מ (₪)</label>
+                        <input id="invoice-net" name="invoiceNet" type="number" min="0.01" step="0.01" inputmode="decimal" required>
+                    </div>
+                    <div class="invoice-field">
+                        <label for="invoice-vat">מע״מ (₪)</label>
+                        <input id="invoice-vat" name="invoiceVat" type="number" min="0" step="0.01" inputmode="decimal" required>
+                    </div>
+                    <div class="invoice-field">
+                        <label for="invoice-total">סכום כולל (₪)</label>
+                        <input id="invoice-total" name="invoiceTotal" type="number" readonly>
+                    </div>
+                    <div class="invoice-field">
+                        <label for="allocation-number">מספר הקצאה</label>
+                        <input id="allocation-number" name="allocationNumber" maxlength="64">
+                    </div>
+                    <div class="invoice-field">
+                        <label for="document-type">סוג מסמך</label>
+                        <select id="document-type" name="documentType" required>
+                            <option value="">בחירת סוג מסמך</option>
+                            <option value="tax-invoice">חשבונית מס</option>
+                            <option value="credit-invoice">חשבונית זיכוי</option>
+                            <option value="invoice-receipt">חשבונית מס / קבלה</option>
+                        </select>
+                    </div>
+                    <div class="invoice-field full-width">
+                        <label for="supplier-notes">הערות לספק</label>
+                        <textarea id="supplier-notes" name="supplierNotes" rows="2"></textarea>
+                    </div>
+                </div>
+            </section>
+
+            <section class="form-panel" aria-labelledby="documents-panel-title">
+                <h2 class="panel-title" id="documents-panel-title">צירוף מסמכים</h2>
+                <div class="panel-content">
+                    <div class="file-row">
+                        <label for="invoice-file">חשבונית (PDF) <span class="required-mark" aria-hidden="true">*</span></label>
+                        <input id="invoice-file" name="invoiceFile" type="file" accept="application/pdf,.pdf" required>
+                    </div>
+                    <div class="file-row">
+                        <label for="supporting-files">צרופות נוספות (לא חובה)</label>
+                        <input id="supporting-files" name="supportingFiles" type="file" multiple>
+                    </div>
+                </div>
+            </section>
+
+            <button class="submit-button invoice-submit" type="submit">שליחת החשבונית</button>
+            <p class="status portal-status" id="invoice-status" role="status" aria-live="polite"></p>
+        </form>
+    </main>
+
+    <script>
+        const form = document.getElementById('supplier-login');
+        const status = document.getElementById('form-status');
+        const loginPage = document.getElementById('login-page');
+        const invoicePage = document.getElementById('invoice-page');
+        const invoiceForm = document.getElementById('invoice-form');
+        const invoiceStatus = document.getElementById('invoice-status');
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            status.textContent = '';
+            status.classList.remove('is-success');
+
+            if (!form.reportValidity()) {
+                return;
+            }
+
+            const submitButton = form.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            submitButton.textContent = 'בודק...';
+
+            try {
+                const response = await fetch('/api/validateSupplier', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        supplierNumber: form.elements.supplierNumber.value,
+                        supplierName: form.elements.supplierName.value,
+                        supplierEmail: form.elements.supplierEmail.value
+                    })
+                });
+
+                const responseBody = await response.text();
+                let result = null;
+                try {
+                    if (responseBody.trim()) {
+                        result = JSON.parse(responseBody);
+                    }
+                } catch {
+                    status.textContent = 'שירות בדיקת הספקים החזיר תשובה לא תקינה.';
+                    return;
+                }
+
+                if (!response.ok) {
+                    status.textContent = result && typeof result.error === 'string'
+                        ? result.error
+                        : 'לא ניתן לבדוק את פרטי הספק כרגע.';
+                    return;
+                }
+
+                if (!result || typeof result.valid !== 'boolean') {
+                    status.textContent = 'שירות בדיקת הספקים החזיר תשובה לא תקינה.';
+                } else if (result.valid) {
+                    document.getElementById('verified-number').value = form.elements.supplierNumber.value.trim();
+                    document.getElementById('verified-name').value = form.elements.supplierName.value.trim();
+                    document.getElementById('verified-email').value = form.elements.supplierEmail.value.trim();
+                    loginPage.hidden = true;
+                    invoicePage.hidden = false;
+                    document.title = 'הגשת חשבונית - פורטל ספקים';
+                } else {
+                    status.textContent = 'לא נמצאה התאמה לפרטים שהוזנו. נא לבדוק אותם ולנסות שוב.';
+                }
+            } catch {
+                status.textContent = 'לא ניתן להתחבר לשירות בדיקת הספקים כרגע.';
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = 'כניסה';
+            }
+        });
+
+        const netAmount = invoiceForm.elements.invoiceNet;
+        const vatAmount = invoiceForm.elements.invoiceVat;
+        const totalAmount = invoiceForm.elements.invoiceTotal;
+
+        function updateInvoiceTotal() {
+            const net = Number(netAmount.value);
+            const vat = Number(vatAmount.value);
+            totalAmount.value = netAmount.value && vatAmount.value && Number.isFinite(net + vat)
+                ? (net + vat).toFixed(2)
+                : '';
+        }
+
+        netAmount.addEventListener('input', updateInvoiceTotal);
+        vatAmount.addEventListener('input', updateInvoiceTotal);
+
+        invoiceForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            invoiceStatus.textContent = '';
+            invoiceStatus.classList.remove('is-success');
+
+            const submitButton = invoiceForm.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            submitButton.textContent = 'שולח...';
+
+            try {
+                const response = await fetch('/api/submitInvoice', {
+                    method: 'POST',
+                    body: new FormData(invoiceForm)
+                });
+                const responseBody = await response.text();
+                let result = null;
+                try {
+                    if (responseBody.trim()) {
+                        result = JSON.parse(responseBody);
+                    }
+                } catch {
+                    invoiceStatus.textContent = 'שירות שליחת החשבוניות החזיר תשובה לא תקינה.';
+                    return;
+                }
+
+                if (!response.ok) {
+                    invoiceStatus.textContent = result && typeof result.error === 'string'
+                        ? result.error
+                        : 'לא ניתן לשמור את החשבונית כרגע.';
+                    return;
+                }
+
+                if (!result || result.success !== true) {
+                    invoiceStatus.textContent = 'שירות שליחת החשבוניות החזיר תשובה לא תקינה.';
+                    return;
+                }
+
+                for (const name of [
+                    'purchaseOrder',
+                    'invoiceNumber',
+                    'invoiceDate',
+                    'invoiceNet',
+                    'invoiceVat',
+                    'invoiceTotal',
+                    'allocationNumber',
+                    'documentType',
+                    'supplierNotes',
+                    'invoiceFile',
+                    'supportingFiles'
+                ]) {
+                    invoiceForm.elements[name].value = '';
+                }
+                invoiceStatus.textContent = 'החשבונית נשמרה ונשלחה בהצלחה.';
+                invoiceStatus.classList.add('is-success');
+            } catch {
+                invoiceStatus.textContent = 'לא ניתן להתחבר לשירות שליחת החשבוניות כרגע.';
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = 'שליחת החשבונית';
+            }
+        });
+
+        document.getElementById('logout-button').addEventListener('click', () => {
+            invoiceForm.reset();
+            form.reset();
+            invoiceStatus.textContent = '';
+            status.textContent = '';
+            loginPage.hidden = false;
+            invoicePage.hidden = true;
+            document.title = 'כניסת ספקים';
+        });
+    </script>
+</body>
+
+</html>
