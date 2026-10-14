@@ -112,10 +112,13 @@ async function getColumns(siteId, listId, accessToken) {
   return result.value;
 }
 
-async function getItems(siteId, listId, selectFields, accessToken, operation) {
+async function getItems(siteId, listId, selectFields, accessToken, operation, filter = "") {
   let url = new URL(`${graphBaseUrl}/sites/${siteId}/lists/${listId}/items`);
   url.searchParams.set('$expand', `fields($select=${selectFields.join(',')})`);
   url.searchParams.set('$top', '200');
+  if (filter !== "") {
+    url.searchParams.set('$filter', filter);
+  }
   const items = [];
 
   while (url) {
@@ -227,10 +230,11 @@ app.http('getPurchaseOrders', {
         ordersList.id,
         ['Title', 'Id'],//, `${supplierColumn.name}Id`],
         accessToken,
-        'purchase order title lookup'
+        'purchase order title lookup',
+        'SupplierText eq \'' + supplierNumber.replace(/'/g, "''") + '\''
       );
       const result = orders
-      //  .filter((order) => lookupIds((order.fields || {})[`${supplierColumn.name}LookupId`])
+        //  .filter((order) => lookupIds((order.fields || {})[`${supplierColumn.name}LookupId`])
         //  .some((id) => supplierIds.has(id)))
         .map((order) => {
           const fields = order.fields || {};
