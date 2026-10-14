@@ -297,7 +297,7 @@
         }
 
         .purchase-summary {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             border: 1px solid #e0e7ec;
             border-radius: 3px;
             background: #f6f8f9;
@@ -515,7 +515,6 @@
                     <div class="purchase-summary" aria-label="פרטי הזמנת רכש">
                         <div class="purchase-detail"><span>מזהה הזמנה</span><strong id="purchase-order-id">—</strong></div>
                         <div class="purchase-detail"><span>פרויקט</span><strong id="purchase-project-title">—</strong></div>
-                        <div class="purchase-detail"><span>תיקיית קבצים</span><strong id="purchase-project-folder">—</strong></div>
                     </div>
                     <input id="purchase-project-id" name="projectId" type="hidden">
                     <input id="purchase-project-folder-value" name="projectFolderUrl" type="hidden">
@@ -600,9 +599,6 @@
             document.getElementById('purchase-order-id').textContent = order ? order.id : '—';
             document.getElementById('purchase-project-title').textContent = order
                 ? order.projectTitle
-                : '—';
-            document.getElementById('purchase-project-folder').textContent = order
-                ? order.projectFolderUrl
                 : '—';
             document.getElementById('purchase-project-id').value = order ? order.projectId : '';
             document.getElementById('purchase-project-folder-value').value = order
