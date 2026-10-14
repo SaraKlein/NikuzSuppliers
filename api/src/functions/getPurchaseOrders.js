@@ -250,7 +250,7 @@ app.http('getPurchaseOrders', {
         getItems(
           site.id,
           ordersList.id,
-          ['Title', `${supplierColumn.name}LookupId`, `${projectColumn.name}LookupId`, folderColumn.name],
+          ['Title', 'Suppliers2Id', 'ProjectId', folderColumn.name],
           accessToken,
           'purchase order lookup'
         ),
