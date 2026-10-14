@@ -2,7 +2,7 @@ const { app } = require('@azure/functions');
 
 const graphBaseUrl = 'https://graph.microsoft.com/v1.0';
 const sitePath = '/sites/Projects';
-const siteHost = 'crdatasystems.sharepoint.com';
+const siteHost = 'yardend.sharepoint.com/';
 const listName = 'ספקים';
 
 function jsonResponse(status, body) {
