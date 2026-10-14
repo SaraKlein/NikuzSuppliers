@@ -3,7 +3,7 @@ const { app } = require('@azure/functions');
 const graphBaseUrl = 'https://graph.microsoft.com/v1.0';
 const sitePath = '/sites/SaraTest';
 const siteHost = 'crdatasystems.sharepoint.com';
-const listName = 'Suppliers';
+const listName = 'ספקים';
 
 function jsonResponse(status, body) {
   return {
