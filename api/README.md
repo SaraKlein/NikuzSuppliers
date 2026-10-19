@@ -28,10 +28,10 @@ the uploaded document's library item while the metadata update is tested:
 | --- | --- | --- | --- |
 | `InvoiceNumber` | מספר חשבונית | Single line of text | Invoice number |
 | `invoiceSum` | סכום החשבונית | Single line of text | Total including VAT, formatted to 2 decimals |
+| `supplier` | ID ספק | Lookup to `ספקים` | Verified supplier item ID |
 
 The duplicate check reads the `invoiceNumber` and `supplier` columns from the
-finance task list. The supplier and order lookup fields are intentionally not
-updated yet.
+finance task list. The order lookup field is intentionally not updated yet.
 The app needs Microsoft Graph application permissions with write access to the
 Projects site.
 
