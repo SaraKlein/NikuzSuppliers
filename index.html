@@ -110,6 +110,11 @@
             box-shadow: 0 0 0 3px rgba(22, 133, 184, 0.14);
         }
 
+        #invoice-form .field-invalid {
+            border-color: #c62828;
+            box-shadow: 0 0 0 2px rgba(198, 40, 40, 0.12);
+        }
+
         .submit-button {
             min-height: 52px;
             margin-top: 5px;
@@ -741,6 +746,11 @@
             const invalidFields = [];
             let firstInvalidField = null;
 
+            invoiceForm.querySelectorAll('.field-invalid').forEach((field) => {
+                field.classList.remove('field-invalid');
+                field.removeAttribute('aria-invalid');
+            });
+
             for (const field of requiredFields) {
                 const hasValue = field.type === 'file'
                     ? field.files.length > 0
@@ -750,9 +760,13 @@
 
                 if (!hasValue) {
                     missingFields.push(fieldName);
+                    field.classList.add('field-invalid');
+                    field.setAttribute('aria-invalid', 'true');
                     firstInvalidField = firstInvalidField || field;
                 } else if (!field.validity.valid) {
                     invalidFields.push(fieldName);
+                    field.classList.add('field-invalid');
+                    field.setAttribute('aria-invalid', 'true');
                     firstInvalidField = firstInvalidField || field;
                 }
             }
@@ -760,6 +774,8 @@
             const projectFolderUrl = document.getElementById('purchase-project-folder-value').value.trim();
             if (!purchaseOrders.has(purchaseOrderSelect.value) || !projectFolderUrl) {
                 missingFields.push('הזמנת רכש');
+                purchaseOrderSelect.classList.add('field-invalid');
+                purchaseOrderSelect.setAttribute('aria-invalid', 'true');
                 firstInvalidField = firstInvalidField || purchaseOrderSelect;
             }
 
@@ -782,6 +798,24 @@
 
             return true;
         }
+
+        invoiceForm.addEventListener('input', (event) => {
+            if (event.target.classList.contains('field-invalid') && event.target.validity.valid) {
+                event.target.classList.remove('field-invalid');
+                event.target.removeAttribute('aria-invalid');
+            }
+        });
+
+        invoiceForm.addEventListener('change', (event) => {
+            if (
+                event.target.classList.contains('field-invalid')
+                && event.target.validity.valid
+                && (event.target !== purchaseOrderSelect || purchaseOrders.has(purchaseOrderSelect.value))
+            ) {
+                event.target.classList.remove('field-invalid');
+                event.target.removeAttribute('aria-invalid');
+            }
+        });
 
         invoiceForm.addEventListener('submit', async (event) => {
             event.preventDefault();
