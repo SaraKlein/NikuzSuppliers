@@ -323,7 +323,7 @@ function safeFileName(name, index, usedNames) {
   return candidate;
 }
 
-function resolveInvoiceFolderPath(projectFolderUrl) {
+function resolveProjectFolderPath(projectFolderUrl) {
   if (typeof projectFolderUrl !== 'string' || !projectFolderUrl.trim()) {
     throw new Error('Project folder URL is required.');
   }
@@ -335,8 +335,7 @@ function resolveInvoiceFolderPath(projectFolderUrl) {
     throw new Error('Project folder URL is invalid.');
   }
 
-  const basePath = pathname.replace(/\/+$/, '');
-  return `${basePath}/חשבוניות`;
+  return pathname.replace(/\/+$/, '');
 }
 
 function safeFileNameFromUpload(name, index, usedNames) {
@@ -412,59 +411,18 @@ async function getDriveItemByPath(driveId, path, accessToken, operation) {
   );
 }
 
-async function ensureGraphInvoiceFolder(projectFolderUrl, siteId, accessToken) {
+async function getProjectDriveAndFolder(projectFolderUrl, siteId, accessToken) {
   const drive = await getProjectDriveLocation(projectFolderUrl, siteId, accessToken);
-  const invoiceFolderPath = [drive.relativePath, 'חשבוניות'].filter(Boolean).join('/');
-  let invoiceFolder = await getDriveItemByPath(
+  const projectFolder = await getDriveItemByPath(
     drive.id,
-    invoiceFolderPath,
+    drive.relativePath,
     accessToken,
-    'invoice folder lookup'
+    'project folder lookup'
   );
-
-  if (!invoiceFolder) {
-    const projectFolder = await getDriveItemByPath(
-      drive.id,
-      drive.relativePath,
-      accessToken,
-      'project folder lookup'
-    );
-    if (!projectFolder) {
-      throw new Error('The project folder was not found in its document library.');
-    }
-
-    try {
-      invoiceFolder = await graphRequest(
-        `${graphBaseUrl}/drives/${encodeURIComponent(drive.id)}/items/${encodeURIComponent(projectFolder.id)}/children`,
-        accessToken,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: 'חשבוניות',
-            folder: {},
-            '@microsoft.graph.conflictBehavior': 'fail'
-          })
-        },
-        'invoice folder creation'
-      );
-    } catch (error) {
-      if (!(error instanceof GraphRequestError) || error.status !== 409) {
-        throw error;
-      }
-      invoiceFolder = await getDriveItemByPath(
-        drive.id,
-        invoiceFolderPath,
-        accessToken,
-        'invoice folder lookup'
-      );
-      if (!invoiceFolder) {
-        throw error;
-      }
-    }
+  if (!projectFolder) {
+    throw new Error('The project folder was not found in its document library.');
   }
-
-  return { drive, invoiceFolderPath };
+  return { drive, projectFolderPath: drive.relativePath };
 }
 
 async function uploadInvoiceFile(
@@ -477,12 +435,12 @@ async function uploadInvoiceFile(
   supplierId,
   orderId
 ) {
-  const { drive, invoiceFolderPath } = await runStep(
-    'איתור ספריית המסמכים ותיקיית החשבוניות בפרויקט',
-    () => ensureGraphInvoiceFolder(projectFolderUrl, siteId, accessToken)
+  const { drive, projectFolderPath } = await runStep(
+    'איתור ספריית המסמכים ותיקיית הפרויקט',
+    () => getProjectDriveAndFolder(projectFolderUrl, siteId, accessToken)
   );
   const safeFileName = safeFileNameFromUpload(file.name, 1, new Set());
-  const uploadPath = [invoiceFolderPath, safeFileName].join('/');
+  const uploadPath = [projectFolderPath, safeFileName].filter(Boolean).join('/');
   const fileData = await runStep(
     `העלאת הקובץ ${safeFileName} באמצעות Microsoft Graph`,
     async () => {
@@ -527,7 +485,7 @@ async function uploadInvoiceFile(
   return {
     fileName: safeFileName,
     fileUrl: fileData.webUrl || null,
-    folderServerRelativeUrl: resolveInvoiceFolderPath(projectFolderUrl)
+    folderServerRelativeUrl: resolveProjectFolderPath(projectFolderUrl)
   };
 }
 

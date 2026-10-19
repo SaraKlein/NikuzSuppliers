@@ -776,9 +776,9 @@
 
             try {
                 const invoiceFile = invoiceForm.elements.invoiceFile.files[0];
-                const invoiceFolderPath = `${decodeURIComponent(new URL(projectFolderUrl).pathname).replace(/\/+$/, '')}/חשבוניות`;
+                const projectFolderPath = decodeURIComponent(new URL(projectFolderUrl).pathname).replace(/\/+$/, '');
                 console.log('Invoice upload target:', {
-                    folderPath: invoiceFolderPath,
+                    folderPath: projectFolderPath,
                     fileName: invoiceFile ? invoiceFile.name : ''
                 });
 
@@ -813,7 +813,7 @@
                 }
 
                 invoiceStatus.textContent = [
-                    `החשבונית אומתה והועלתה בהצלחה לתיקייה ${result.folderServerRelativeUrl || 'חשבוניות'}.`,
+                    `החשבונית אומתה והועלתה בהצלחה לתיקייה ${result.folderServerRelativeUrl || projectFolderPath}.`,
                     ...formatSubmissionProgress(result).split('\n').filter(Boolean)
                 ].join('\n');
                 invoiceStatus.classList.add('is-success');
