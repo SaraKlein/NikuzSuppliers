@@ -744,9 +744,15 @@
             invoiceStatus.textContent = '';
             invoiceStatus.classList.remove('is-success');
 
+            const projectFolderUrl = document.getElementById('purchase-project-folder-value').value.trim();
+            if (!purchaseOrderSelect.value || !projectFolderUrl) {
+                invoiceStatus.textContent = 'יש לבחור הזמנת רכש לפני העלאת החשבונית.';
+                return;
+            }
+
             const submitButton = invoiceForm.querySelector('button[type="submit"]');
             submitButton.disabled = true;
-            submitButton.textContent = 'בודק התאמה...';
+            submitButton.textContent = 'בודק ומעלה...';
 
             try {
                 const response = await fetch('/api/submitInvoice', {
@@ -771,12 +777,12 @@
                     return;
                 }
 
-                if (!result || result.success !== true || result.validated !== true) {
+                if (!result || result.success !== true || result.validated !== true || result.uploaded !== true) {
                     invoiceStatus.textContent = 'שירות בדיקת החשבונית החזיר תשובה לא תקינה.';
                     return;
                 }
 
-                invoiceStatus.textContent = 'לא נמצאה חשבונית קודמת עם אותם פרטים. הבדיקה הושלמה; החשבונית לא נשמרה.';
+                invoiceStatus.textContent = `החשבונית אומתה והועלתה בהצלחה לתיקייה ${result.folderServerRelativeUrl || 'חשבוניות'}.`;
                 invoiceStatus.classList.add('is-success');
             } catch {
                 invoiceStatus.textContent = 'לא ניתן להתחבר לשירות בדיקת החשבונית כרגע.';
