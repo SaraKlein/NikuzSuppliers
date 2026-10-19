@@ -130,10 +130,7 @@ async function financeTaskExists(siteId, invoiceValues, accessToken) {
     const page = await graphRequest(itemsUrl, accessToken, null, 'finance task verification');
     const found = page.value.some((item) => {
       const fields = item.fields || {};
-      const amount = Number(fields.InvoiceAmount);
       return String(fields.invoiceNumber || '').trim() === invoiceValues.invoiceNumber
-        && Number.isFinite(amount)
-        && Math.round(amount * 100) === Math.round(invoiceValues.netAmount * 100)
         && String(fields.supplier || '').trim().toLowerCase()
           === invoiceValues.supplierName.toLowerCase();
     });
@@ -358,28 +355,20 @@ app.http('submitInvoice', {
 
       const invoiceNumber = getTextField(formData, 'invoiceNumber');
       const supplierName = getTextField(formData, 'verifiedName');
-      const netAmountText = getTextField(formData, 'invoiceNet');
-      const netAmount = Number(netAmountText);
-      if (
-        !invoiceNumber
-        || !supplierName
-        || !netAmountText
-        || !Number.isFinite(netAmount)
-        || netAmount < 0.01
-      ) {
-        return jsonResponse(400, { error: 'יש למלא מספר חשבונית, שם ספק וסכום לפני מע״מ תקינים.' });
+      if (!invoiceNumber || !supplierName) {
+        return jsonResponse(400, { error: 'יש למלא מספר חשבונית ושם ספק.' });
       }
 
       const graphToken = await getAccessToken(credentials, 'https://graph.microsoft.com/.default');
       const site = await getSharePointSite(graphToken);
       const matchingTaskExists = await financeTaskExists(
         site.id,
-        { invoiceNumber, supplierName, netAmount },
+        { invoiceNumber, supplierName },
         graphToken
       );
       if (matchingTaskExists) {
         return jsonResponse(409, {
-          error: 'חשבונית עם אותו מספר, סכום וספק כבר נמצאת בשימוש. לא ניתן להמשיך עם חשבונית זו.'
+          error: `חשבונית מספר ${invoiceNumber} כבר הוגשה עבור ספק ${supplierName}.\nאי אפשר להעלות את החשבונית.`
         });
       }
 

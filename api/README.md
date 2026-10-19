@@ -24,15 +24,13 @@ validator reads these SharePoint internal columns:
 | Internal name | Display name |
 | --- | --- |
 | `invoiceNumber` | מספר חשבונית |
-| `InvoiceAmount` | סכום החשבונית |
 | `supplier` | ספק |
 
-The validator checks whether any row matches all three submitted values:
-invoice number, net amount (before VAT), and verified supplier name. If a
+The validator checks whether any row matches the invoice number and verified
+supplier name. The invoice amount is not part of this duplicate check. If a
 matching row exists, the API returns a conflict and blocks the submission
 because the invoice is already in use. If no matching row exists, it confirms
-validation only; it does not create or save an invoice. It does not check the
-columns' SharePoint types.
+validation only; it does not create or save an invoice.
 
 When invoice saving is enabled, create these columns in `Invoices` with the
 exact display names and types. Column internal names can differ; the API
