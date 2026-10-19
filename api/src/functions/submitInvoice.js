@@ -336,7 +336,7 @@ function resolveInvoiceFolderPath(projectFolderUrl) {
   }
 
   const basePath = pathname.replace(/\/+$/, '');
-  return `${basePath}`;///חשבוניות`;
+  return `${basePath}/חשבוניות`;
 }
 
 function safeFileNameFromUpload(name, index, usedNames) {
@@ -517,7 +517,7 @@ async function uploadInvoiceFile(
           InvoiceNumber: invoiceValues.invoiceNumber,
           invoiceSum: invoiceValues.totalAmount.toFixed(2),
           supplierId: supplierId,
-          orderId: orderId
+          order0Id: orderId
         })
       },
       'invoice metadata update'
