@@ -3,7 +3,6 @@ const { app } = require('@azure/functions');
 const graphBaseUrl = 'https://graph.microsoft.com/v1.0';
 const siteHost = 'yardend.sharepoint.com';
 const sitePath = '/sites/Projects';
-const siteUrl = `https://${siteHost}${sitePath}`;
 const listName = 'Invoices';
 const financeTaskListName = 'רשימת משימות - כספים';
 const supplierListName = 'ספקים';
@@ -80,14 +79,14 @@ async function getAccessToken(credentials, scope) {
   return tokenResponse.access_token;
 }
 
-async function graphRequest(url, accessToken, options, operation) {
+async function graphRequest(url, accessToken, options, operation, timeoutMs = 20000) {
   const response = await fetch(url, {
     ...options,
     headers: {
       Authorization: `Bearer ${accessToken}`,
       ...(options && options.headers)
     },
-    signal: AbortSignal.timeout(20000)
+    signal: AbortSignal.timeout(timeoutMs)
   });
 
   if (!response.ok) {
@@ -96,6 +95,22 @@ async function graphRequest(url, accessToken, options, operation) {
 
   if (response.status === 204) {
     return null;
+  }
+
+  return response.json();
+}
+
+async function graphRequestIfExists(url, accessToken, operation) {
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(20000)
+  });
+
+  if (response.status === 404) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new GraphRequestError(operation, response.status);
   }
 
   return response.json();
@@ -187,31 +202,6 @@ async function supplierExists(siteId, values, accessToken) {
   }
 
   return false;
-}
-
-async function getRequestDigest(accessToken) {
-  const response = await fetch(`${siteUrl}/_api/contextinfo`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: 'application/json;odata=verbose'
-    },
-    signal: AbortSignal.timeout(20000)
-  });
-
-  if (!response.ok) {
-    throw new Error(`SharePoint request digest failed (${response.status})`);
-  }
-
-  const result = await response.json();
-  const digest = result.d && result.d.GetContextWebInformation
-    ? result.d.GetContextWebInformation.FormDigestValue
-    : null;
-  if (typeof digest !== 'string') {
-    throw new Error('SharePoint request digest response was invalid');
-  }
-
-  return digest;
 }
 
 function getTextField(formData, name) {
@@ -314,28 +304,6 @@ function safeFileName(name, index, usedNames) {
   return candidate;
 }
 
-async function addAttachment(listId, itemId, file, fileName, accessToken, digest) {
-  const escapedFileName = encodeURIComponent(fileName.replace(/'/g, "''")).replace(/'/g, '%27');
-  const response = await fetch(
-    `${siteUrl}/_api/web/lists(guid'${listId}')/items(${itemId})/AttachmentFiles/add(FileName='${escapedFileName}')`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'X-RequestDigest': digest,
-        Accept: 'application/json;odata=nometadata',
-        'Content-Type': 'application/octet-stream'
-      },
-      body: Buffer.from(await file.arrayBuffer()),
-      signal: AbortSignal.timeout(30000)
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`SharePoint attachment upload failed (${response.status})`);
-  }
-}
-
 function resolveInvoiceFolderPath(projectFolderUrl) {
   if (typeof projectFolderUrl !== 'string' || !projectFolderUrl.trim()) {
     throw new Error('Project folder URL is required.');
@@ -372,89 +340,143 @@ function safeFileNameFromUpload(name, index, usedNames) {
   return candidate;
 }
 
-async function ensureFolderExists(folderServerRelativeUrl, accessToken) {
-  const folderUrl = `${siteUrl}/_api/web/GetFolderByServerRelativeUrl('${encodeURIComponent(folderServerRelativeUrl)}')`;
-  const checkResponse = await fetch(folderUrl, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: 'application/json;odata=nometadata'
-    },
-    signal: AbortSignal.timeout(20000)
-  });
-
-  if (checkResponse.ok) {
-    return;
-  }
-
-  if (checkResponse.status !== 404) {
-    const text = await checkResponse.text().catch(() => '');
-    throw new Error(`SharePoint folder check failed (${checkResponse.status}): ${text || 'unknown error'}`);
-  }
-
-  const digest = await getRequestDigest(accessToken);
-  const response = await fetch(`${siteUrl}/_api/web/folders`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'X-RequestDigest': digest,
-      'Content-Type': 'application/json;odata=verbose',
-      Accept: 'application/json;odata=verbose'
-    },
-    body: JSON.stringify({
-      __metadata: { type: 'SP.Folder' },
-      ServerRelativeUrl: folderServerRelativeUrl
-    })
-  });
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => '');
-    throw new Error(`SharePoint folder creation failed (${response.status}): ${text || 'unknown error'}`);
-  }
+function encodeGraphPath(path) {
+  return path.split('/').filter(Boolean).map(encodeURIComponent).join('/');
 }
 
-async function uploadInvoiceFile(projectFolderUrl, file, accessToken, runStep) {
-  const folderServerRelativeUrl = resolveInvoiceFolderPath(projectFolderUrl);
-  await runStep(
-    'בדיקת תיקיית חשבוניות בפרויקט',
-    () => ensureFolderExists(folderServerRelativeUrl, accessToken)
+async function getProjectDriveLocation(projectFolderUrl, siteId, accessToken) {
+  const projectUrl = new URL(projectFolderUrl);
+  if (projectUrl.origin !== `https://${siteHost}`) {
+    throw new Error('Project folder URL is not on the configured SharePoint host.');
+  }
+
+  const drivesUrl = new URL(`${graphBaseUrl}/sites/${siteId}/drives`);
+  drivesUrl.searchParams.set('$select', 'id,name,webUrl');
+  const drivesResult = await graphRequest(drivesUrl, accessToken, null, 'document library lookup');
+  const projectPath = decodeURIComponent(projectUrl.pathname).replace(/\/+$/, '');
+  const matchingDrives = drivesResult.value
+    .map((drive) => {
+      if (!drive.webUrl || !drive.id) {
+        return null;
+      }
+      const driveUrl = new URL(drive.webUrl);
+      const drivePath = decodeURIComponent(driveUrl.pathname).replace(/\/+$/, '');
+      if (
+        driveUrl.origin !== projectUrl.origin
+        || (projectPath !== drivePath && !projectPath.startsWith(`${drivePath}/`))
+      ) {
+        return null;
+      }
+
+      return {
+        id: drive.id,
+        relativePath: projectPath.slice(drivePath.length).replace(/^\/+/, ''),
+        pathLength: drivePath.length
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => right.pathLength - left.pathLength);
+
+  if (!matchingDrives.length) {
+    throw new Error('No document library matched the project folder URL.');
+  }
+
+  return matchingDrives[0];
+}
+
+async function getDriveItemByPath(driveId, path, accessToken, operation) {
+  const drivePath = path ? `:/${encodeGraphPath(path)}` : '';
+  return graphRequestIfExists(
+    `${graphBaseUrl}/drives/${encodeURIComponent(driveId)}/root${drivePath}`,
+    accessToken,
+    operation
+  );
+}
+
+async function ensureGraphInvoiceFolder(projectFolderUrl, siteId, accessToken) {
+  const drive = await getProjectDriveLocation(projectFolderUrl, siteId, accessToken);
+  const invoiceFolderPath = [drive.relativePath, 'חשבוניות'].filter(Boolean).join('/');
+  let invoiceFolder = await getDriveItemByPath(
+    drive.id,
+    invoiceFolderPath,
+    accessToken,
+    'invoice folder lookup'
   );
 
-  const digest = await runStep(
-    'קבלת אישור SharePoint להעלאה',
-    () => getRequestDigest(accessToken)
+  if (!invoiceFolder) {
+    const projectFolder = await getDriveItemByPath(
+      drive.id,
+      drive.relativePath,
+      accessToken,
+      'project folder lookup'
+    );
+    if (!projectFolder) {
+      throw new Error('The project folder was not found in its document library.');
+    }
+
+    try {
+      invoiceFolder = await graphRequest(
+        `${graphBaseUrl}/drives/${encodeURIComponent(drive.id)}/items/${encodeURIComponent(projectFolder.id)}/children`,
+        accessToken,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: 'חשבוניות',
+            folder: {},
+            '@microsoft.graph.conflictBehavior': 'fail'
+          })
+        },
+        'invoice folder creation'
+      );
+    } catch (error) {
+      if (!(error instanceof GraphRequestError) || error.status !== 409) {
+        throw error;
+      }
+      invoiceFolder = await getDriveItemByPath(
+        drive.id,
+        invoiceFolderPath,
+        accessToken,
+        'invoice folder lookup'
+      );
+      if (!invoiceFolder) {
+        throw error;
+      }
+    }
+  }
+
+  return { drive, invoiceFolderPath };
+}
+
+async function uploadInvoiceFile(projectFolderUrl, file, siteId, accessToken, runStep) {
+  const { drive, invoiceFolderPath } = await runStep(
+    'איתור ספריית המסמכים ותיקיית החשבוניות בפרויקט',
+    () => ensureGraphInvoiceFolder(projectFolderUrl, siteId, accessToken)
   );
   const safeFileName = safeFileNameFromUpload(file.name, 1, new Set());
-  const targetUrl = `${siteUrl}/_api/web/GetFolderByServerRelativeUrl('${encodeURIComponent(folderServerRelativeUrl)}')/Files/add(url='${encodeURIComponent(safeFileName)}',overwrite=true)`;
-
-  const uploadResponse = await runStep(
-    `שליחת הקובץ ${safeFileName} ל-SharePoint`,
+  const uploadPath = [invoiceFolderPath, safeFileName].join('/');
+  const fileData = await runStep(
+    `העלאת הקובץ ${safeFileName} באמצעות Microsoft Graph`,
     async () => {
-      const response = await fetch(targetUrl, {
-        method: 'POST',
-        headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'X-RequestDigest': digest,
-      Accept: 'application/json;odata=nometadata'
+      const fileBytes = Buffer.from(await file.arrayBuffer());
+      return graphRequest(
+        `${graphBaseUrl}/drives/${encodeURIComponent(drive.id)}/root:/${encodeGraphPath(uploadPath)}:/content`,
+        accessToken,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': file.type || 'application/octet-stream' },
+          body: fileBytes
         },
-        body: Buffer.from(await file.arrayBuffer())
-      });
-      if (!response.ok) {
-        throw new Error(`SharePoint file upload failed (${response.status})`);
-      }
-      return response;
+        'invoice file upload',
+        120000
+      );
     }
   );
 
-  const fileData = await uploadResponse.json().catch(() => ({}));
-  const fileUrl = fileData && fileData.d && typeof fileData.d.ServerRelativeUrl === 'string'
-    ? fileData.d.ServerRelativeUrl
-    : null;
-
   return {
     fileName: safeFileName,
-    fileUrl,
-    folderServerRelativeUrl
+    fileUrl: fileData.webUrl || null,
+    folderServerRelativeUrl: resolveInvoiceFolderPath(projectFolderUrl)
   };
 }
 
@@ -535,7 +557,7 @@ app.http('submitInvoice', {
         });
       }
 
-      const uploadResult = await uploadInvoiceFile(projectFolderUrl, invoiceFile, graphToken, runStep);
+      const uploadResult = await uploadInvoiceFile(projectFolderUrl, invoiceFile, site.id, graphToken, runStep);
 
       return jsonResponse(200, {
         success: true,

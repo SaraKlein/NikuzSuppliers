@@ -65,11 +65,10 @@ Configure these application settings for the Azure Static Web App API:
 The app registration needs Microsoft Graph **application** permission
 `Sites.Selected`, admin consent, and an explicit **read** grant to the Projects
 site for current supplier, order, and finance-task validation. Grant **write**
-access to the Projects site when invoice saving is enabled. For file
-attachments, also grant the SharePoint API application permission
-`Sites.Selected` and **write** access to the Projects site. Store the secret
-only in Azure application settings; do not add it to the repository or send it
-to the browser.
+access to the Projects site when invoice saving is enabled. Invoice files are
+uploaded through Microsoft Graph, so no SharePoint API permission is required.
+Store the secret only in Azure application settings; do not add it to the
+repository or send it to the browser.
 
 The supplier validation endpoint only checks whether the supplied details
 match a list item; it does not authenticate the person or establish a logged-in
