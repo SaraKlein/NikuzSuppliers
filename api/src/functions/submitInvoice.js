@@ -413,7 +413,7 @@ async function ensureFolderExists(folderServerRelativeUrl, accessToken) {
   }
 }
 
-async function uploadInvoiceFile(projectFolderUrl, file, metadata, accessToken) {
+async function uploadInvoiceFile(projectFolderUrl, file, accessToken) {
   const folderServerRelativeUrl = resolveInvoiceFolderPath(projectFolderUrl);
   await ensureFolderExists(folderServerRelativeUrl, accessToken);
 
@@ -497,14 +497,7 @@ app.http('submitInvoice', {
         });
       }
 
-      const uploadResult = await uploadInvoiceFile(projectFolderUrl, invoiceFile, {
-        invoiceNumber: invoiceValues.invoiceNumber,
-        supplierName: invoiceValues.supplierName,
-        supplierId: getTextField(formData, 'supplierId') || null,
-        projectId: getTextField(formData, 'projectId') || null,
-        projectTitle: getTextField(formData, 'projectTitle') || null,
-        uploadedAt: new Date().toISOString()
-      }, graphToken);
+      const uploadResult = await uploadInvoiceFile(projectFolderUrl, invoiceFile, graphToken);
 
       return jsonResponse(200, {
         success: true,

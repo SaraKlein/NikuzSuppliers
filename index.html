@@ -755,6 +755,13 @@
             submitButton.textContent = 'בודק ומעלה...';
 
             try {
+                const invoiceFile = invoiceForm.elements.invoiceFile.files[0];
+                const invoiceFolderPath = `${decodeURIComponent(new URL(projectFolderUrl).pathname).replace(/\/+$/, '')}/חשבוניות`;
+                console.log('Invoice upload target:', {
+                    folderPath: invoiceFolderPath,
+                    fileName: invoiceFile ? invoiceFile.name : ''
+                });
+
                 const response = await fetch('/api/submitInvoice', {
                     method: 'POST',
                     body: new FormData(invoiceForm)
