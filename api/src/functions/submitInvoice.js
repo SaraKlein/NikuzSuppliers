@@ -377,9 +377,9 @@ app.http('submitInvoice', {
         { invoiceNumber, supplierName, netAmount },
         graphToken
       );
-      if (!matchingTaskExists) {
+      if (matchingTaskExists) {
         return jsonResponse(409, {
-          error: 'לא נמצאה משימת כספים תואמת למספר החשבונית, לסכום לפני מע״מ ולשם הספק.'
+          error: 'חשבונית עם אותו מספר, סכום וספק כבר נמצאת בשימוש. לא ניתן להמשיך עם חשבונית זו.'
         });
       }
 

@@ -18,8 +18,8 @@ suppliers and read the orders and projects lists.
 ## Invoice submission API
 
 Currently, `POST /api/submitInvoice` only validates the submitted invoice
-against the `FinanceTaskList` list on the Projects SharePoint site. The
-The validator reads these SharePoint internal columns:
+against the `רשימת משימות - כספים` list on the Projects SharePoint site. The
+validator reads these SharePoint internal columns:
 
 | Internal name | Display name |
 | --- | --- |
@@ -27,10 +27,12 @@ The validator reads these SharePoint internal columns:
 | `InvoiceAmount` | סכום החשבונית |
 | `supplier` | ספק |
 
-The validator reads the internal column names and matches their values to the
-form's invoice number, net amount (before VAT), and verified supplier name,
-respectively. It does not check the columns' SharePoint types. A successful
-response confirms value validation only; it does not create or save an invoice.
+The validator checks whether any row matches all three submitted values:
+invoice number, net amount (before VAT), and verified supplier name. If a
+matching row exists, the API returns a conflict and blocks the submission
+because the invoice is already in use. If no matching row exists, it confirms
+validation only; it does not create or save an invoice. It does not check the
+columns' SharePoint types.
 
 When invoice saving is enabled, create these columns in `Invoices` with the
 exact display names and types. Column internal names can differ; the API
