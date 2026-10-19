@@ -22,7 +22,13 @@ const invoiceColumns = [
   'SupplierNotes'
 ];
 
-class FinanceTaskSchemaError extends Error {}
+class GraphRequestError extends Error {
+  constructor(operation, status) {
+    super(`Microsoft Graph ${operation} request failed (${status})`);
+    this.operation = operation;
+    this.status = status;
+  }
+}
 
 function jsonResponse(status, body) {
   return {
@@ -85,7 +91,7 @@ async function graphRequest(url, accessToken, options, operation) {
   });
 
   if (!response.ok) {
-    throw new Error(`Microsoft Graph ${operation} request failed (${response.status})`);
+    throw new GraphRequestError(operation, response.status);
   }
 
   if (response.status === 204) {
@@ -116,41 +122,19 @@ async function financeTaskExists(siteId, invoiceValues, accessToken) {
     throw new Error(`SharePoint list "${financeTaskListName}" was not found`);
   }
 
-  const columns = await getListColumns(siteId, list.id, accessToken);
-  const financeTaskFields = {
-    invoiceNumber: { name: 'invoiceNumber', type: 'text' },
-    invoiceAmount: { name: 'InvoiceAmount', type: 'currency' },
-    supplier: { name: 'supplier', type: 'text' }
-  };
-  const invalidFields = Object.entries(financeTaskFields)
-    .filter(([, expected]) => columns.get(expected.name) !== expected.type)
-    .map(([field, expected]) => {
-      const actualType = columns.get(expected.name) || 'missing';
-      return `${field} (${expected.name}): expected ${expected.type}, got ${actualType}`;
-    });
-  if (invalidFields.length) {
-    throw new FinanceTaskSchemaError(
-      `SharePoint list "${financeTaskListName}" has invalid finance columns: ${invalidFields.join('; ')}`
-    );
-  }
-
   let itemsUrl = new URL(`${graphBaseUrl}/sites/${siteId}/lists/${list.id}/items`);
-  itemsUrl.searchParams.set(
-    '$expand',
-    `fields($select=${Object.values(financeTaskFields).map((field) => field.name).join(',')})`
-  );
+  itemsUrl.searchParams.set('$expand', 'fields');
   itemsUrl.searchParams.set('$top', '200');
 
   while (itemsUrl) {
     const page = await graphRequest(itemsUrl, accessToken, null, 'finance task verification');
     const found = page.value.some((item) => {
       const fields = item.fields || {};
-      const amount = Number(fields[financeTaskFields.invoiceAmount.name]);
-      return String(fields[financeTaskFields.invoiceNumber.name] || '').trim()
-          === invoiceValues.invoiceNumber
+      const amount = Number(fields.InvoiceAmount);
+      return String(fields.invoiceNumber || '').trim() === invoiceValues.invoiceNumber
         && Number.isFinite(amount)
         && Math.round(amount * 100) === Math.round(invoiceValues.netAmount * 100)
-        && String(fields[financeTaskFields.supplier.name] || '').trim().toLowerCase()
+        && String(fields.supplier || '').trim().toLowerCase()
           === invoiceValues.supplierName.toLowerCase();
     });
     if (found) {
@@ -206,19 +190,6 @@ async function supplierExists(siteId, values, accessToken) {
   }
 
   return false;
-}
-
-async function getListColumns(siteId, listId, accessToken) {
-  const url = new URL(`${graphBaseUrl}/sites/${siteId}/lists/${listId}/columns`);
-  url.searchParams.set('$select', 'name,displayName,text,currency,number');
-  const result = await graphRequest(url, accessToken, null, 'list columns lookup');
-  const columns = new Map();
-  for (const column of result.value) {
-    const type = ['text', 'currency', 'number']
-      .find((columnType) => column[columnType] !== undefined && column[columnType] !== null);
-    columns.set(column.name, type || 'unsupported');
-  }
-  return columns;
 }
 
 async function getRequestDigest(accessToken) {
@@ -385,8 +356,6 @@ app.http('submitInvoice', {
         return jsonResponse(400, { error: 'מספר הספק חסר.' });
       }
 
-      console.log('supplierNumber', supplierNumber);
-
       const invoiceNumber = getTextField(formData, 'invoiceNumber');
       const supplierName = getTextField(formData, 'verifiedName');
       const netAmountText = getTextField(formData, 'invoiceNet');
@@ -437,9 +406,9 @@ app.http('submitInvoice', {
       return jsonResponse(200, { success: true, validated: true });
     } catch (error) {
       context.error('Invoice validation failed.', error);
-      if (error instanceof FinanceTaskSchemaError) {
-        return jsonResponse(500, {
-          error: 'סוגי השדות ברשימת משימות הכספים אינם תואמים. יש לבדוק שמספר החשבונית והספק הם טקסט, וסכום החשבונית הוא מטבע.'
+      if (error instanceof GraphRequestError) {
+        return jsonResponse(502, {
+          error: `בדיקת SharePoint נכשלה בשלב ${error.operation} (HTTP ${error.status}).`
         });
       }
 
