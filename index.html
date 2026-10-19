@@ -143,6 +143,7 @@
             color: #8a4b16;
             font-size: 14px;
             line-height: 1.5;
+            white-space: pre-line;
         }
 
         .status:not(:empty) {
@@ -739,6 +740,24 @@
         netAmount.addEventListener('input', updateInvoiceTotal);
         vatAmount.addEventListener('input', updateInvoiceTotal);
 
+        function formatSubmissionProgress(result, errorMessage) {
+            const messages = Array.isArray(result && result.completedSteps)
+                ? result.completedSteps.map((step) => `✓ ${step}`)
+                : [];
+
+            if (result && typeof result.failedStep === 'string') {
+                messages.push(`✗ נכשל בשלב: ${result.failedStep}`);
+            }
+            if (result && typeof result.diagnostic === 'string') {
+                messages.push(`פרט טכני: ${result.diagnostic}`);
+            }
+            if (errorMessage) {
+                messages.push(errorMessage);
+            }
+
+            return messages.join('\n');
+        }
+
         invoiceForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             invoiceStatus.textContent = '';
@@ -753,6 +772,7 @@
             const submitButton = invoiceForm.querySelector('button[type="submit"]');
             submitButton.disabled = true;
             submitButton.textContent = 'בודק ומעלה...';
+            invoiceStatus.textContent = 'הבקשה נשלחה. ממתין לתוצאות בדיקת SharePoint והעלאה...';
 
             try {
                 const invoiceFile = invoiceForm.elements.invoiceFile.files[0];
@@ -773,14 +793,17 @@
                         result = JSON.parse(responseBody);
                     }
                 } catch {
-                    invoiceStatus.textContent = 'שירות בדיקת החשבונית החזיר תשובה לא תקינה.';
+                    invoiceStatus.textContent =
+                        `שירות בדיקת החשבונית החזיר תשובה לא תקינה (HTTP ${response.status}); לא התקבל פירוט של שלבי השרת.`;
                     return;
                 }
 
                 if (!response.ok) {
-                    invoiceStatus.textContent = result && typeof result.error === 'string'
+                    const errorMessage = result && typeof result.error === 'string'
                         ? result.error
                         : 'לא ניתן לבדוק את התאמת החשבונית כרגע.';
+                    invoiceStatus.textContent = formatSubmissionProgress(result, errorMessage)
+                        || `${errorMessage} (HTTP ${response.status})`;
                     return;
                 }
 
@@ -789,10 +812,14 @@
                     return;
                 }
 
-                invoiceStatus.textContent = `החשבונית אומתה והועלתה בהצלחה לתיקייה ${result.folderServerRelativeUrl || 'חשבוניות'}.`;
+                invoiceStatus.textContent = [
+                    `החשבונית אומתה והועלתה בהצלחה לתיקייה ${result.folderServerRelativeUrl || 'חשבוניות'}.`,
+                    ...formatSubmissionProgress(result).split('\n').filter(Boolean)
+                ].join('\n');
                 invoiceStatus.classList.add('is-success');
             } catch {
-                invoiceStatus.textContent = 'לא ניתן להתחבר לשירות בדיקת החשבונית כרגע.';
+                invoiceStatus.textContent =
+                    'בקשת ההעלאה נכשלה לפני שהתקבלה תשובת שרת. בדקו את חיבור הרשת ואת יומן השרת.';
             } finally {
                 submitButton.disabled = false;
                 submitButton.textContent = 'בדיקת התאמה';

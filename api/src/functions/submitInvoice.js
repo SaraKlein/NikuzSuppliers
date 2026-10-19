@@ -349,7 +349,7 @@ function resolveInvoiceFolderPath(projectFolderUrl) {
   }
 
   const basePath = pathname.replace(/\/+$/, '');
-  return `${basePath}`;///חשבוניות`;
+  return `${basePath}/חשבוניות`;
 }
 
 function safeFileNameFromUpload(name, index, usedNames) {
@@ -413,28 +413,38 @@ async function ensureFolderExists(folderServerRelativeUrl, accessToken) {
   }
 }
 
-async function uploadInvoiceFile(projectFolderUrl, file, accessToken) {
+async function uploadInvoiceFile(projectFolderUrl, file, accessToken, runStep) {
   const folderServerRelativeUrl = resolveInvoiceFolderPath(projectFolderUrl);
-  await ensureFolderExists(folderServerRelativeUrl, accessToken);
+  await runStep(
+    'בדיקת תיקיית חשבוניות בפרויקט',
+    () => ensureFolderExists(folderServerRelativeUrl, accessToken)
+  );
 
-  const digest = await getRequestDigest(accessToken);
+  const digest = await runStep(
+    'קבלת אישור SharePoint להעלאה',
+    () => getRequestDigest(accessToken)
+  );
   const safeFileName = safeFileNameFromUpload(file.name, 1, new Set());
   const targetUrl = `${siteUrl}/_api/web/GetFolderByServerRelativeUrl('${encodeURIComponent(folderServerRelativeUrl)}')/Files/add(url='${encodeURIComponent(safeFileName)}',overwrite=true)`;
 
-  const uploadResponse = await fetch(targetUrl, {
-    method: 'POST',
-    headers: {
+  const uploadResponse = await runStep(
+    `שליחת הקובץ ${safeFileName} ל-SharePoint`,
+    async () => {
+      const response = await fetch(targetUrl, {
+        method: 'POST',
+        headers: {
       Authorization: `Bearer ${accessToken}`,
       'X-RequestDigest': digest,
       Accept: 'application/json;odata=nometadata'
-    },
-    body: Buffer.from(await file.arrayBuffer())
-  });
-
-  if (!uploadResponse.ok) {
-    const responseBody = await uploadResponse.text().catch(() => '');
-    throw new Error(`SharePoint file upload failed (${uploadResponse.status}): ${responseBody || 'unknown error'}`);
-  }
+        },
+        body: Buffer.from(await file.arrayBuffer())
+      });
+      if (!response.ok) {
+        throw new Error(`SharePoint file upload failed (${response.status})`);
+      }
+      return response;
+    }
+  );
 
   const fileData = await uploadResponse.json().catch(() => ({}));
   const fileUrl = fileData && fileData.d && typeof fileData.d.ServerRelativeUrl === 'string'
@@ -452,52 +462,80 @@ app.http('submitInvoice', {
   methods: ['POST'],
   authLevel: 'anonymous',
   handler: async (request, context) => {
+    const completedSteps = [];
+    let currentStep = 'בדיקת הגדרות SharePoint';
+    const failureResponse = (status, error, diagnostic) => jsonResponse(status, {
+      error,
+      completedSteps,
+      failedStep: currentStep,
+      ...(diagnostic ? { diagnostic } : {})
+    });
+    const runStep = async (label, operation) => {
+      currentStep = label;
+      const result = await operation();
+      completedSteps.push(label);
+      return result;
+    };
+
     const credentials = getCredentials();
     if (!credentials) {
       context.error('Invoice validation is not configured: SharePoint credentials are missing.');
-      return jsonResponse(503, { error: 'בדיקת התאמת החשבונית אינה זמינה כרגע.' });
+      return failureResponse(503, 'בדיקת התאמת החשבונית אינה זמינה כרגע.');
     }
+    completedSteps.push('הגדרות SharePoint קיימות');
 
     try {
-      const formData = await request.formData();
+      const formData = await runStep('קריאת נתוני הטופס', () => request.formData());
+      currentStep = 'בדיקת שדות החשבונית והקובץ';
       const supplierNumber = formData.get('verifiedNumber');
       if (typeof supplierNumber !== 'string' || !supplierNumber.trim()) {
-        return jsonResponse(400, { error: 'מספר הספק חסר.' });
+        return failureResponse(400, 'מספר הספק חסר.');
       }
 
       const invoiceFile = formData.get('invoiceFile');
       if (!isFile(invoiceFile)) {
-        return jsonResponse(400, { error: 'יש לצרף את קובץ החשבונית.' });
+        return failureResponse(400, 'יש לצרף את קובץ החשבונית.');
       }
 
       if (invoiceFile.size > maxUploadBytes) {
-        return jsonResponse(400, { error: 'גודל קובץ החשבונית עולה על 50 MB.' });
+        return failureResponse(400, 'גודל קובץ החשבונית עולה על 50 MB.');
       }
 
       const invoiceValues = getInvoiceValues(formData);
       if (!invoiceValues) {
-        return jsonResponse(400, { error: 'פרטי החשבונית אינם תקינים.' });
+        return failureResponse(400, 'פרטי החשבונית אינם תקינים.');
       }
 
       const projectFolderUrl = getTextField(formData, 'projectFolderUrl');
       if (!projectFolderUrl) {
-        return jsonResponse(400, { error: 'יש לבחור הזמנת רכש תקינה לפני העלאת החשבונית.' });
+        return failureResponse(400, 'יש לבחור הזמנת רכש תקינה לפני העלאת החשבונית.');
       }
+      completedSteps.push(currentStep);
 
-      const graphToken = await getAccessToken(credentials, 'https://graph.microsoft.com/.default');
-      const site = await getSharePointSite(graphToken);
-      const matchingTaskExists = await financeTaskExists(
-        site.id,
-        { invoiceNumber: invoiceValues.invoiceNumber, supplierName: invoiceValues.supplierName },
-        graphToken
+      const graphToken = await runStep(
+        'קבלת אסימון Microsoft Graph',
+        () => getAccessToken(credentials, 'https://graph.microsoft.com/.default')
+      );
+      const site = await runStep(
+        'איתור אתר SharePoint',
+        () => getSharePointSite(graphToken)
+      );
+      const matchingTaskExists = await runStep(
+        'בדיקת חשבונית כפולה ברשימת המשימות',
+        () => financeTaskExists(
+          site.id,
+          { invoiceNumber: invoiceValues.invoiceNumber, supplierName: invoiceValues.supplierName },
+          graphToken
+        )
       );
       if (matchingTaskExists) {
         return jsonResponse(409, {
+          completedSteps,
           error: `חשבונית מספר ${invoiceValues.invoiceNumber} כבר הוגשה עבור ספק ${invoiceValues.supplierName}.\nאי אפשר להעלות את החשבונית.`
         });
       }
 
-      const uploadResult = await uploadInvoiceFile(projectFolderUrl, invoiceFile, graphToken);
+      const uploadResult = await uploadInvoiceFile(projectFolderUrl, invoiceFile, graphToken, runStep);
 
       return jsonResponse(200, {
         success: true,
@@ -505,19 +543,35 @@ app.http('submitInvoice', {
         uploaded: true,
         fileName: uploadResult.fileName,
         fileUrl: uploadResult.fileUrl,
-        folderServerRelativeUrl: uploadResult.folderServerRelativeUrl
+        folderServerRelativeUrl: uploadResult.folderServerRelativeUrl,
+        completedSteps
       });
     } catch (error) {
       context.error('Invoice validation failed.', error);
+      const statusMatch = error && typeof error.message === 'string'
+        ? error.message.match(/\((\d{3})\)/)
+        : null;
+      const diagnostic = error instanceof GraphRequestError
+        ? `HTTP ${error.status}`
+        : statusMatch
+          ? `HTTP ${statusMatch[1]}`
+          : error && error.name === 'TypeError'
+            ? 'שגיאת רשת או כתובת'
+            : 'שגיאה פנימית; יש לבדוק את יומן השרת';
+
       if (error instanceof GraphRequestError) {
-        return jsonResponse(502, {
-          error: `בדיקת SharePoint נכשלה בשלב ${error.operation} (HTTP ${error.status}).`
-        });
+        return failureResponse(
+          502,
+          `בדיקת SharePoint נכשלה בשלב ${error.operation} (HTTP ${error.status}).`,
+          diagnostic
+        );
       }
 
-      return jsonResponse(502, {
-        error: 'לא ניתן לבדוק את התאמת החשבונית כרגע. נא לבדוק את הגדרות SharePoint ולנסות שוב.'
-      });
+      return failureResponse(
+        502,
+        'לא ניתן לבדוק את התאמת החשבונית כרגע. נא לבדוק את הגדרות SharePoint ולנסות שוב.',
+        diagnostic
+      );
     }
   }
 });
