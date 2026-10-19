@@ -242,14 +242,12 @@ function getInvoiceValues(formData) {
   const supplierEmail = getTextField(formData, 'verifiedEmail');
   const invoiceNumber = getTextField(formData, 'invoiceNumber');
   const invoiceDate = getTextField(formData, 'invoiceDate');
-  const netText = getTextField(formData, 'invoiceNet');
-  const vatText = getTextField(formData, 'invoiceVat');
+  const totalText = getTextField(formData, 'invoiceTotal');
   const allocationNumber = getTextField(formData, 'allocationNumber');
   const documentType = getTextField(formData, 'documentType');
   const supplierNotes = getTextField(formData, 'supplierNotes');
   const purchaseOrder = getTextField(formData, 'purchaseOrder');
-  const netAmount = Number(netText);
-  const vatAmount = Number(vatText);
+  const totalAmount = Number(totalText);
 
   if (
     !supplierNumber
@@ -260,22 +258,14 @@ function getInvoiceValues(formData) {
     || !invoiceNumber
     || invoiceNumber.length > 64
     || !validDate(invoiceDate)
-    || !netText
-    || !Number.isFinite(netAmount)
-    || netAmount < 0.01
-    || !vatText
-    || !Number.isFinite(vatAmount)
-    || vatAmount < 0
+    || !totalText
+    || !Number.isFinite(totalAmount)
+    || totalAmount < 0.01
     || !['tax-invoice', 'credit-invoice', 'invoice-receipt'].includes(documentType)
     || allocationNumber.length > 64
     || supplierNotes.length > 5000
     || purchaseOrder.length > 128
   ) {
-    return null;
-  }
-
-  const totalAmount = Math.round((netAmount + vatAmount + Number.EPSILON) * 100) / 100;
-  if (!Number.isFinite(totalAmount)) {
     return null;
   }
 
@@ -285,8 +275,6 @@ function getInvoiceValues(formData) {
     supplierEmail,
     invoiceNumber,
     invoiceDate,
-    netAmount,
-    vatAmount,
     totalAmount,
     allocationNumber,
     documentType: {

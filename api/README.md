@@ -30,9 +30,12 @@ The uploaded filename keeps the original extension and adds a UTC timestamp
 | Internal name | Display name | SharePoint type | Value |
 | --- | --- | --- | --- |
 | `InvoiceNumber` | מספר חשבונית | Single line of text | Invoice number |
-| `invoiceSum` | סכום החשבונית | Single line of text | Total including VAT, formatted to 2 decimals |
+| `invoiceSum` | סכום החשבונית | Single line of text | Total including VAT entered by the supplier |
 | `supplier` | ID ספק | Lookup to `ספקים` | Verified supplier item ID |
 | `order0` | ID הזמנה | Lookup to `הזמנות` | Selected order item ID |
+
+The supplier enters the total amount including VAT; this value is written
+directly to `invoiceSum`.
 
 The duplicate check reads the `invoiceNumber` and `supplier` columns from the
 finance task list.

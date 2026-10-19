@@ -535,16 +535,8 @@
                         <input id="invoice-date" name="invoiceDate" type="date" required>
                     </div>
                     <div class="invoice-field">
-                        <label for="invoice-net">סכום לפני מע״מ (₪)</label>
-                        <input id="invoice-net" name="invoiceNet" type="number" min="0.01" step="0.01" inputmode="decimal" required>
-                    </div>
-                    <div class="invoice-field">
-                        <label for="invoice-vat">מע״מ (₪)</label>
-                        <input id="invoice-vat" name="invoiceVat" type="number" min="0" step="0.01" inputmode="decimal" required>
-                    </div>
-                    <div class="invoice-field">
-                        <label for="invoice-total">סכום כולל (₪)</label>
-                        <input id="invoice-total" name="invoiceTotal" type="number" readonly>
+                        <label for="invoice-total">סכום כולל מע״מ (₪)</label>
+                        <input id="invoice-total" name="invoiceTotal" type="number" min="0.01" step="0.01" inputmode="decimal" required>
                     </div>
                     <div class="invoice-field">
                         <label for="allocation-number">מספר הקצאה</label>
@@ -724,21 +716,6 @@
         });
 
         purchaseOrderSelect.addEventListener('change', renderPurchaseOrderDetails);
-
-        const netAmount = invoiceForm.elements.invoiceNet;
-        const vatAmount = invoiceForm.elements.invoiceVat;
-        const totalAmount = invoiceForm.elements.invoiceTotal;
-
-        function updateInvoiceTotal() {
-            const net = Number(netAmount.value);
-            const vat = Number(vatAmount.value);
-            totalAmount.value = netAmount.value && vatAmount.value && Number.isFinite(net + vat)
-                ? (net + vat).toFixed(2)
-                : '';
-        }
-
-        netAmount.addEventListener('input', updateInvoiceTotal);
-        vatAmount.addEventListener('input', updateInvoiceTotal);
 
         function formatSubmissionProgress(result, errorMessage) {
             const messages = Array.isArray(result && result.completedSteps)
