@@ -21,15 +21,17 @@ suppliers and read the orders and projects lists.
 
 `POST /api/submitInvoice` checks the submitted invoice against the
 `רשימת משימות - כספים` list on the Projects SharePoint site, uploads the PDF to
-the selected project's folder, and currently writes only this metadata field
-to the uploaded document's library item while the metadata update is tested:
+the selected project's folder, and currently writes these metadata fields to
+the uploaded document's library item while the metadata update is tested:
 
 | Internal name | Display name | SharePoint type | Value |
 | --- | --- | --- | --- |
 | `InvoiceNumber` | מספר חשבונית | Single line of text | Invoice number |
+| `invoiceSum` | סכום החשבונית | Single line of text | Total including VAT, formatted to 2 decimals |
 
 The duplicate check reads the `invoiceNumber` and `supplier` columns from the
-finance task list. The other metadata fields are intentionally not updated yet.
+finance task list. The supplier and order lookup fields are intentionally not
+updated yet.
 The app needs Microsoft Graph application permissions with write access to the
 Projects site.
 

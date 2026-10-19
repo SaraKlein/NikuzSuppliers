@@ -462,7 +462,7 @@ async function uploadInvoiceFile(
   }
 
   await runStep(
-    'עדכון שדה InvoiceNumber בלבד',
+    'עדכון שדות InvoiceNumber ו-invoiceSum',
     () => graphRequest(
       `${graphBaseUrl}/drives/${encodeURIComponent(drive.id)}/items/${encodeURIComponent(fileData.id)}/listItem/fields`,
       accessToken,
@@ -470,7 +470,8 @@ async function uploadInvoiceFile(
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          InvoiceNumber: invoiceValues.invoiceNumber
+          InvoiceNumber: invoiceValues.invoiceNumber,
+          invoiceSum: invoiceValues.totalAmount.toFixed(2)
         })
       },
       'invoice metadata update'
