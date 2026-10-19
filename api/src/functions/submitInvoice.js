@@ -431,9 +431,7 @@ async function uploadInvoiceFile(
   siteId,
   accessToken,
   runStep,
-  invoiceValues,
-  supplierId,
-  orderId
+  invoiceValues
 ) {
   const { drive, projectFolderPath } = await runStep(
     'איתור ספריית המסמכים ותיקיית הפרויקט',
@@ -464,7 +462,7 @@ async function uploadInvoiceFile(
   }
 
   await runStep(
-    'עדכון פרטי החשבונית בקובץ',
+    'עדכון שדה InvoiceNumber בלבד',
     () => graphRequest(
       `${graphBaseUrl}/drives/${encodeURIComponent(drive.id)}/items/${encodeURIComponent(fileData.id)}/listItem/fields`,
       accessToken,
@@ -472,10 +470,7 @@ async function uploadInvoiceFile(
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          InvoiceNumber: invoiceValues.invoiceNumber,
-          invoiceSum: invoiceValues.totalAmount.toFixed(2),
-          supplierId: supplierId,
-          order0Id: orderId
+          InvoiceNumber: invoiceValues.invoiceNumber
         })
       },
       'invoice metadata update'
@@ -598,9 +593,7 @@ app.http('submitInvoice', {
         site.id,
         graphToken,
         runStep,
-        invoiceValues,
-        Number(verifiedSupplierId),
-        Number(orderId)
+        invoiceValues
       );
 
       return jsonResponse(200, {

@@ -21,20 +21,17 @@ suppliers and read the orders and projects lists.
 
 `POST /api/submitInvoice` checks the submitted invoice against the
 `רשימת משימות - כספים` list on the Projects SharePoint site, uploads the PDF to
-the selected project's `חשבוניות` folder, and writes the following metadata
-to the uploaded document's library item:
+the selected project's folder, and currently writes only this metadata field
+to the uploaded document's library item while the metadata update is tested:
 
 | Internal name | Display name | SharePoint type | Value |
 | --- | --- | --- | --- |
 | `InvoiceNumber` | מספר חשבונית | Single line of text | Invoice number |
-| `invoiceSum` | סכום החשבונית | Single line of text | Total including VAT, formatted to 2 decimals |
-| `supplier` | ID ספק | Lookup to `ספקים` | Verified supplier item ID |
-| `order` | ID הזמנה | Lookup to `הזמנות` | Selected order item ID |
 
 The duplicate check reads the `invoiceNumber` and `supplier` columns from the
-finance task list. Metadata updates use Microsoft Graph lookup field names
-`supplierLookupId` and `orderLookupId`. The app needs Microsoft Graph
-application permissions with write access to the Projects site.
+finance task list. The other metadata fields are intentionally not updated yet.
+The app needs Microsoft Graph application permissions with write access to the
+Projects site.
 
 Configure these application settings for the Azure Static Web App API:
 
