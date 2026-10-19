@@ -345,12 +345,26 @@ function safeFileNameFromUpload(name, index, usedNames) {
     .slice(-180) || `attachment-${index + 1}`;
 
   const dot = cleaned.lastIndexOf('.');
-  const stem = dot > 0 ? cleaned.slice(0, dot) : cleaned;
   const extension = dot > 0 ? cleaned.slice(dot) : '';
-  let candidate = cleaned;
+  const stem = dot > 0 ? cleaned.slice(0, dot) : cleaned;
+  const now = new Date();
+  const timestamp = [
+    String(now.getUTCFullYear()),
+    String(now.getUTCMonth() + 1).padStart(2, '0'),
+    String(now.getUTCDate()).padStart(2, '0'),
+    '_',
+    String(now.getUTCHours()).padStart(2, '0'),
+    String(now.getUTCMinutes()).padStart(2, '0'),
+    String(now.getUTCSeconds()).padStart(2, '0'),
+    String(now.getUTCMilliseconds()).padStart(3, '0')
+  ].join('');
+  const timestampSuffix = `_${timestamp}`;
+  const maxStemLength = Math.max(1, 180 - extension.length - timestampSuffix.length);
+  const limitedStem = stem.slice(-maxStemLength);
+  let candidate = `${limitedStem}${timestampSuffix}${extension}`;
   let suffix = 2;
   while (usedNames.has(candidate.toLowerCase())) {
-    candidate = `${stem}-${suffix}${extension}`;
+    candidate = `${limitedStem}-${suffix}${timestampSuffix}${extension}`;
     suffix += 1;
   }
 

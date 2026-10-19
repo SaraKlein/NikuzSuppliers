@@ -24,6 +24,9 @@ suppliers and read the orders and projects lists.
 the selected project's folder, and currently writes these metadata fields to
 the uploaded document's library item while the metadata update is tested:
 
+The uploaded filename keeps the original extension and adds a UTC timestamp
+(`_yyyyMMdd_HHmmssfff`) before it, for example `invoice_20261019_122135642.pdf`.
+
 | Internal name | Display name | SharePoint type | Value |
 | --- | --- | --- | --- |
 | `InvoiceNumber` | מספר חשבונית | Single line of text | Invoice number |
