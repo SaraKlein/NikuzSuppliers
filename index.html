@@ -578,7 +578,7 @@
                 </div>
             </section>
 
-            <button class="submit-button invoice-submit" type="submit">שליחת החשבונית</button>
+            <button class="submit-button invoice-submit" type="submit">בדיקת התאמה</button>
             <p class="status portal-status" id="invoice-status" role="status" aria-live="polite"></p>
         </form>
     </main>
@@ -739,7 +739,7 @@
 
             const submitButton = invoiceForm.querySelector('button[type="submit"]');
             submitButton.disabled = true;
-            submitButton.textContent = 'שולח...';
+            submitButton.textContent = 'בודק התאמה...';
 
             try {
                 const response = await fetch('/api/submitInvoice', {
@@ -753,45 +753,29 @@
                         result = JSON.parse(responseBody);
                     }
                 } catch {
-                    invoiceStatus.textContent = 'שירות שליחת החשבוניות החזיר תשובה לא תקינה.';
+                    invoiceStatus.textContent = 'שירות בדיקת החשבונית החזיר תשובה לא תקינה.';
                     return;
                 }
 
                 if (!response.ok) {
                     invoiceStatus.textContent = result && typeof result.error === 'string'
                         ? result.error
-                        : 'לא ניתן לשמור את החשבונית כרגע.';
+                        : 'לא ניתן לבדוק את התאמת החשבונית כרגע.';
                     return;
                 }
 
-                if (!result || result.success !== true) {
-                    invoiceStatus.textContent = 'שירות שליחת החשבוניות החזיר תשובה לא תקינה.';
+                if (!result || result.success !== true || result.validated !== true) {
+                    invoiceStatus.textContent = 'שירות בדיקת החשבונית החזיר תשובה לא תקינה.';
                     return;
                 }
 
-                for (const name of [
-                    'purchaseOrder',
-                    'invoiceNumber',
-                    'invoiceDate',
-                    'invoiceNet',
-                    'invoiceVat',
-                    'invoiceTotal',
-                    'allocationNumber',
-                    'documentType',
-                    'supplierNotes',
-                    'invoiceFile',
-                    'supportingFiles'
-                ]) {
-                    invoiceForm.elements[name].value = '';
-                }
-                renderPurchaseOrderDetails();
-                invoiceStatus.textContent = 'החשבונית נשמרה ונשלחה בהצלחה.';
+                invoiceStatus.textContent = 'החשבונית תואמת למשימת הכספים. החשבונית לא נשמרה.';
                 invoiceStatus.classList.add('is-success');
             } catch {
-                invoiceStatus.textContent = 'לא ניתן להתחבר לשירות שליחת החשבוניות כרגע.';
+                invoiceStatus.textContent = 'לא ניתן להתחבר לשירות בדיקת החשבונית כרגע.';
             } finally {
                 submitButton.disabled = false;
-                submitButton.textContent = 'שליחת החשבונית';
+                submitButton.textContent = 'בדיקת התאמה';
             }
         });
 

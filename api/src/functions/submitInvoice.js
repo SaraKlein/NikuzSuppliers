@@ -1,10 +1,11 @@
 const { app } = require('@azure/functions');
 
 const graphBaseUrl = 'https://graph.microsoft.com/v1.0';
-const siteHost = 'crdatasystems.sharepoint.com';
-const sitePath = '/sites/SaraTest';
+const siteHost = 'yardend.sharepoint.com';
+const sitePath = '/sites/Projects';
 const siteUrl = `https://${siteHost}${sitePath}`;
 const listName = 'Invoices';
+const financeTaskListName = 'FinanceTaskList';
 const supplierListName = 'Suppliers';
 const maxUploadBytes = 50 * 1024 * 1024;
 const invoiceColumns = [
@@ -92,24 +93,60 @@ async function graphRequest(url, accessToken, options, operation) {
   return response.json();
 }
 
-async function getInvoicesList(accessToken) {
+async function getSharePointSite(accessToken) {
   const site = await graphRequest(
     `${graphBaseUrl}/sites/${siteHost}:${sitePath}`,
     accessToken,
     null,
     'site lookup'
   );
-  const listsUrl = new URL(`${graphBaseUrl}/sites/${site.id}/lists`);
-  listsUrl.searchParams.set('$filter', `displayName eq '${listName}'`);
+  return site;
+}
+
+async function financeTaskExists(siteId, invoiceValues, accessToken) {
+  const listsUrl = new URL(`${graphBaseUrl}/sites/${siteId}/lists`);
+  listsUrl.searchParams.set('$filter', `displayName eq '${financeTaskListName}'`);
   listsUrl.searchParams.set('$select', 'id,displayName');
-  const lists = await graphRequest(listsUrl, accessToken, null, 'list lookup');
-  const list = lists.value.find((item) => item.displayName === listName);
+  const lists = await graphRequest(listsUrl, accessToken, null, 'finance task list lookup');
+  const list = lists.value.find((item) => item.displayName === financeTaskListName);
 
   if (!list) {
-    throw new Error(`SharePoint list "${listName}" was not found`);
+    throw new Error(`SharePoint list "${financeTaskListName}" was not found`);
   }
 
-  return { site, list };
+  let itemsUrl = new URL(`${graphBaseUrl}/sites/${siteId}/lists/${list.id}/items`);
+  itemsUrl.searchParams.set(
+    '$expand',
+    'fields($select=invoiceNumber,InvoiceAmount,supplier)'
+  );
+  itemsUrl.searchParams.set('$top', '200');
+
+  while (itemsUrl) {
+    const page = await graphRequest(itemsUrl, accessToken, null, 'finance task verification');
+    const found = page.value.some((item) => {
+      const fields = item.fields || {};
+      const amount = Number(fields.InvoiceAmount);
+      return String(fields.invoiceNumber || '').trim() === invoiceValues.invoiceNumber
+        && Number.isFinite(amount)
+        && Math.round(amount * 100) === Math.round(invoiceValues.netAmount * 100)
+        && String(fields.supplier || '').trim().toLowerCase()
+          === invoiceValues.supplierName.toLowerCase();
+    });
+    if (found) {
+      return true;
+    }
+
+    if (page['@odata.nextLink']) {
+      itemsUrl = new URL(page['@odata.nextLink']);
+      if (itemsUrl.origin !== new URL(graphBaseUrl).origin) {
+        throw new Error('Microsoft Graph returned an unexpected pagination URL');
+      }
+    } else {
+      itemsUrl = null;
+    }
+  }
+
+  return false;
 }
 
 async function supplierExists(siteId, values, accessToken) {
@@ -314,8 +351,8 @@ app.http('submitInvoice', {
   handler: async (request, context) => {
     const credentials = getCredentials();
     if (!credentials) {
-      context.error('Invoice submission is not configured: SharePoint credentials are missing.');
-      return jsonResponse(503, { error: 'שליחת החשבונית אינה זמינה כרגע.' });
+      context.error('Invoice validation is not configured: SharePoint credentials are missing.');
+      return jsonResponse(503, { error: 'בדיקת התאמת החשבונית אינה זמינה כרגע.' });
     }
 
     try {
@@ -325,8 +362,34 @@ app.http('submitInvoice', {
         return jsonResponse(400, { error: 'מספר הספק חסר.' });
       }
 
+      const invoiceNumber = getTextField(formData, 'invoiceNumber');
+      const supplierName = getTextField(formData, 'verifiedName');
+      const netAmountText = getTextField(formData, 'invoiceNet');
+      const netAmount = Number(netAmountText);
+      if (
+        !invoiceNumber
+        || !supplierName
+        || !netAmountText
+        || !Number.isFinite(netAmount)
+        || netAmount < 0.01
+      ) {
+        return jsonResponse(400, { error: 'יש למלא מספר חשבונית, שם ספק וסכום לפני מע״מ תקינים.' });
+      }
+
       const graphToken = await getAccessToken(credentials, 'https://graph.microsoft.com/.default');
-      const { site, list } = await getInvoicesList(graphToken);
+      const site = await getSharePointSite(graphToken);
+      const matchingTaskExists = await financeTaskExists(
+        site.id,
+        { invoiceNumber, supplierName, netAmount },
+        graphToken
+      );
+      if (!matchingTaskExists) {
+        return jsonResponse(409, {
+          error: 'לא נמצאה משימת כספים תואמת למספר החשבונית, לסכום לפני מע״מ ולשם הספק.'
+        });
+      }
+
+      /*
       const createdItem = await graphRequest(
         `${graphBaseUrl}/sites/${site.id}/lists/${list.id}/items`,
         graphToken,
@@ -344,10 +407,13 @@ app.http('submitInvoice', {
       );
 
       return jsonResponse(201, { success: true, itemId: createdItem.id });
+      */
+
+      return jsonResponse(200, { success: true, validated: true });
     } catch (error) {
-      context.error('Invoice submission failed.', error);
+      context.error('Invoice validation failed.', error);
       return jsonResponse(502, {
-        error: 'לא ניתן לשמור את החשבונית כרגע. נא לבדוק את הגדרות SharePoint ולנסות שוב.'
+        error: 'לא ניתן לבדוק את התאמת החשבונית כרגע. נא לבדוק את הגדרות SharePoint ולנסות שוב.'
       });
     }
   }

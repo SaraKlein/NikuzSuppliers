@@ -17,14 +17,16 @@ suppliers and read the orders and projects lists.
 
 ## Invoice submission API
 
-The `POST /api/submitInvoice` endpoint creates an item in the `Invoices` list
-on the SaraTest SharePoint site and adds the required invoice PDF and any
-supporting files as list attachments. It accepts `multipart/form-data` with
-the form's supplier, invoice, and file fields. Uploads are limited to 50 MB in
-total.
+Currently, `POST /api/submitInvoice` only validates the submitted invoice
+against the `FinanceTaskList` list on the Projects SharePoint site. The
+`invoiceNumber` must match the form's invoice number, `InvoiceAmount` must
+match the net amount (before VAT), and `supplier` must match the verified
+supplier name. A successful response confirms validation only; it does not
+create or save an invoice.
 
-Create these columns in `Invoices` with the exact display names and types.
-Column internal names can differ; the API resolves them by display name.
+When invoice saving is enabled, create these columns in `Invoices` with the
+exact display names and types. Column internal names can differ; the API
+resolves them by display name.
 
 | Display name | SharePoint type |
 | --- | --- |
@@ -41,8 +43,8 @@ Column internal names can differ; the API resolves them by display name.
 | Supplier Notes | Multiple lines of text |
 | Purchase Order | Single line of text (needed when the form sends a purchase order) |
 
-The built-in `Title` field is populated with the invoice number. Enable list
-attachments so the PDF and supporting files can be stored on the item.
+For invoice saving, the built-in `Title` field will be populated with the
+invoice number. Enable list attachments to store the PDF and supporting files.
 
 Configure these application settings for the Azure Static Web App API:
 
@@ -52,10 +54,10 @@ Configure these application settings for the Azure Static Web App API:
 
 The app registration needs Microsoft Graph **application** permission
 `Sites.Selected`, admin consent, and an explicit **read** grant to the Projects
-site plus an explicit **write** grant to the SaraTest site. The API uses these
-grants to verify suppliers, read orders and projects, and create invoices. For
-file attachments, also grant the SharePoint API application permission
-`Sites.Selected` and **write** access to the SaraTest site. Store the secret
+site for current supplier, order, and finance-task validation. Grant **write**
+access to the Projects site when invoice saving is enabled. For file
+attachments, also grant the SharePoint API application permission
+`Sites.Selected` and **write** access to the Projects site. Store the secret
 only in Azure application settings; do not add it to the repository or send it
 to the browser.
 
