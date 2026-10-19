@@ -19,10 +19,18 @@ suppliers and read the orders and projects lists.
 
 Currently, `POST /api/submitInvoice` only validates the submitted invoice
 against the `FinanceTaskList` list on the Projects SharePoint site. The
-`invoiceNumber` must match the form's invoice number, `InvoiceAmount` must
-match the net amount (before VAT), and `supplier` must match the verified
-supplier name. A successful response confirms validation only; it does not
-create or save an invoice.
+SharePoint internal columns and types must match this schema:
+
+| Internal name | Display name | SharePoint type |
+| --- | --- | --- |
+| `invoiceNumber` | מספר חשבונית | Single line of text |
+| `InvoiceAmount` | סכום החשבונית | Currency |
+| `supplier` | ספק | Single line of text |
+
+The API checks these types and then matches their values to the form's invoice
+number, net amount (before VAT), and verified supplier name, respectively. A
+successful response confirms validation only; it does not create or save an
+invoice.
 
 When invoice saving is enabled, create these columns in `Invoices` with the
 exact display names and types. Column internal names can differ; the API
