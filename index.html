@@ -500,6 +500,7 @@
                         <label for="verified-email">דוא״ל</label>
                         <input id="verified-email" name="verifiedEmail" type="email" readonly dir="ltr">
                     </div>
+                    <input id="verified-supplier-id" name="supplierId" type="hidden">
                 </div>
             </section>
 
@@ -648,10 +649,15 @@
                     return;
                 }
 
-                if (!result || typeof result.valid !== 'boolean') {
+                if (
+                    !result
+                    || typeof result.valid !== 'boolean'
+                    || (result.valid && typeof result.supplierId !== 'string')
+                ) {
                     status.textContent = 'שירות בדיקת הספקים החזיר תשובה לא תקינה.';
                 } else if (result.valid) {
                     const supplier = {
+                        id: result.supplierId,
                         supplierNumber: form.elements.supplierNumber.value.trim(),
                         supplierName: form.elements.supplierName.value.trim(),
                         supplierEmail: form.elements.supplierEmail.value.trim()
@@ -701,6 +707,7 @@
                     document.getElementById('verified-number').value = supplier.supplierNumber;
                     document.getElementById('verified-name').value = supplier.supplierName;
                     document.getElementById('verified-email').value = supplier.supplierEmail;
+                    document.getElementById('verified-supplier-id').value = supplier.id;
                     loginPage.hidden = true;
                     invoicePage.hidden = false;
                     document.title = 'הגשת חשבונית - פורטל ספקים';

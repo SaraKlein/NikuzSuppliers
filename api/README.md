@@ -4,7 +4,9 @@ The `POST /api/validateSupplier` endpoint checks that the supplier number, name,
 and email match one item in the `ספקים` list on the
 [Projects SharePoint site](https://yardend.sharepoint.com/sites/Projects/).
 The matching SharePoint internal field names are `field_1`, `Title`, and
-`field_7`, respectively.
+`field_7`, respectively. A valid response also includes the matched list item's
+SharePoint ID as `supplierId`; the portal retains it in the invoice form for
+future use.
 
 The `POST /api/getPurchaseOrders` endpoint repeats that supplier check, then
 returns items from the `הזמנות` list whose `SupplierText` field matches the

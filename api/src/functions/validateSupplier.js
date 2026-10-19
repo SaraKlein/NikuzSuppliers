@@ -99,15 +99,18 @@ async function supplierExists(values, accessToken) {
 
   while (nextUrl) {
     const page = await graphGet(nextUrl, accessToken, 'supplier lookup');
-    const found = page.value.some((item) => {
+    const matchingItem = page.value.find((item) => {
       const fields = item.fields || {};
       return normalize(fields.field_1) === values.supplierNumber
         && normalize(fields.Title) === values.supplierName
         && normalize(fields.field_7) === values.supplierEmail;
     });
 
-    if (found) {
-      return true;
+    if (matchingItem) {
+      if (typeof matchingItem.id !== 'string' || !matchingItem.id) {
+        throw new Error('Matching supplier item did not include an ID');
+      }
+      return matchingItem.id;
     }
 
     if (page['@odata.nextLink']) {
@@ -120,7 +123,7 @@ async function supplierExists(values, accessToken) {
     }
   }
 
-  return false;
+  return null;
 }
 
 app.http('validateSupplier', {
@@ -165,13 +168,16 @@ app.http('validateSupplier', {
 
     try {
       const accessToken = await getAccessToken(credentials);
-      const valid = await supplierExists({
+      const supplierId = await supplierExists({
         supplierNumber: normalize(supplierNumber),
         supplierName: normalize(supplierName),
         supplierEmail: normalize(supplierEmail)
       }, accessToken);
 
-      return jsonResponse(200, { valid });
+      return jsonResponse(200, {
+        valid: supplierId !== null,
+        supplierId
+      });
     } catch (error) {
       context.error('Supplier validation failed', error);
       return jsonResponse(502, { error: 'לא ניתן לבדוק את פרטי הספק כרגע.' });
