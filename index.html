@@ -510,7 +510,7 @@
                 <div class="panel-content">
                     <div class="purchase-picker">
                         <label for="purchase-order">הזמנת רכש</label>
-                        <select id="purchase-order" name="purchaseOrder">
+                        <select id="purchase-order" name="purchaseOrder" required>
                             <option value="">בחירת הזמנת רכש</option>
                         </select>
                     </div>
@@ -735,17 +735,64 @@
             return messages.join('\n');
         }
 
+        function validateInvoiceForm() {
+            const requiredFields = [...invoiceForm.querySelectorAll('[required]')];
+            const missingFields = [];
+            const invalidFields = [];
+            let firstInvalidField = null;
+
+            for (const field of requiredFields) {
+                const hasValue = field.type === 'file'
+                    ? field.files.length > 0
+                    : typeof field.value === 'string' && field.value.trim() !== '';
+                const label = invoiceForm.querySelector(`label[for="${field.id}"]`);
+                const fieldName = label ? label.textContent.trim() : field.name;
+
+                if (!hasValue) {
+                    missingFields.push(fieldName);
+                    firstInvalidField = firstInvalidField || field;
+                } else if (!field.validity.valid) {
+                    invalidFields.push(fieldName);
+                    firstInvalidField = firstInvalidField || field;
+                }
+            }
+
+            const projectFolderUrl = document.getElementById('purchase-project-folder-value').value.trim();
+            if (!purchaseOrders.has(purchaseOrderSelect.value) || !projectFolderUrl) {
+                missingFields.push('הזמנת רכש');
+                firstInvalidField = firstInvalidField || purchaseOrderSelect;
+            }
+
+            if (!document.getElementById('verified-supplier-id').value.trim()) {
+                missingFields.push('פרטי ספק מאומתים');
+            }
+
+            if (missingFields.length || invalidFields.length) {
+                const messages = [];
+                if (missingFields.length) {
+                    messages.push(`נא למלא את השדות הבאים: ${[...new Set(missingFields)].join(', ')}.`);
+                }
+                if (invalidFields.length) {
+                    messages.push(`נא לבדוק את הערכים בשדות: ${[...new Set(invalidFields)].join(', ')}.`);
+                }
+                invoiceStatus.textContent = messages.join('\n');
+                firstInvalidField?.focus();
+                return false;
+            }
+
+            return true;
+        }
+
         invoiceForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             invoiceStatus.textContent = '';
             invoiceStatus.classList.remove('is-success');
 
-            const projectFolderUrl = document.getElementById('purchase-project-folder-value').value.trim();
-            if (!purchaseOrderSelect.value || !projectFolderUrl) {
-                invoiceStatus.textContent = 'יש לבחור הזמנת רכש לפני העלאת החשבונית.';
+            if (!validateInvoiceForm()) {
                 return;
             }
 
+            const projectFolderUrl = document.getElementById('purchase-project-folder-value').value.trim();
             const submitButton = invoiceForm.querySelector('button[type="submit"]');
             submitButton.disabled = true;
             submitButton.textContent = 'בודק ומעלה...';
