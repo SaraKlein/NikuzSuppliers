@@ -166,7 +166,7 @@ async function financeTaskExists(siteId, invoiceValues, accessToken) {
   return false;
 }
 
-async function supplierExists(siteId, values, accessToken) {
+async function getVerifiedSupplierId(siteId, values, accessToken) {
   const listsUrl = new URL(`${graphBaseUrl}/sites/${siteId}/lists`);
   listsUrl.searchParams.set('$filter', `displayName eq '${supplierListName}'`);
   listsUrl.searchParams.set('$select', 'id,displayName');
@@ -181,14 +181,14 @@ async function supplierExists(siteId, values, accessToken) {
   itemsUrl.searchParams.set('$top', '200');
   while (itemsUrl) {
     const page = await graphRequest(itemsUrl, accessToken, null, 'supplier verification');
-    const found = page.value.some((item) => {
+    const found = page.value.find((item) => {
       const fields = item.fields || {};
       return String(fields.field_1 || '').trim().toLowerCase() === values.supplierNumber.toLowerCase()
         && String(fields.Title || '').trim().toLowerCase() === values.supplierName.toLowerCase()
         && String(fields.field_7 || '').trim().toLowerCase() === values.supplierEmail.toLowerCase();
     });
     if (found) {
-      return true;
+      return String(found.id);
     }
 
     if (page['@odata.nextLink']) {
@@ -201,7 +201,26 @@ async function supplierExists(siteId, values, accessToken) {
     }
   }
 
-  return false;
+  return null;
+}
+
+async function orderBelongsToSupplier(siteId, orderId, supplierName, accessToken) {
+  const listsUrl = new URL(`${graphBaseUrl}/sites/${siteId}/lists`);
+  listsUrl.searchParams.set('$filter', "displayName eq 'הזמנות'");
+  listsUrl.searchParams.set('$select', 'id,displayName');
+  const lists = await graphRequest(listsUrl, accessToken, null, 'purchase order list lookup');
+  const list = lists.value.find((item) => item.displayName === 'הזמנות');
+  if (!list) {
+    throw new Error('SharePoint purchase order list was not found.');
+  }
+
+  const itemUrl = new URL(
+    `${graphBaseUrl}/sites/${siteId}/lists/${encodeURIComponent(list.id)}/items/${encodeURIComponent(orderId)}`
+  );
+  itemUrl.searchParams.set('$expand', 'fields($select=SupplierText)');
+  const order = await graphRequest(itemUrl, accessToken, null, 'purchase order verification');
+  const orderSupplier = String((order.fields || {}).SupplierText || '').trim().toLowerCase();
+  return orderSupplier === supplierName.trim().toLowerCase();
 }
 
 function getTextField(formData, name) {
@@ -317,7 +336,7 @@ function resolveInvoiceFolderPath(projectFolderUrl) {
   }
 
   const basePath = pathname.replace(/\/+$/, '');
-  return `${basePath}/חשבוניות`;
+  return `${basePath}`;///חשבוניות`;
 }
 
 function safeFileNameFromUpload(name, index, usedNames) {
@@ -448,7 +467,16 @@ async function ensureGraphInvoiceFolder(projectFolderUrl, siteId, accessToken) {
   return { drive, invoiceFolderPath };
 }
 
-async function uploadInvoiceFile(projectFolderUrl, file, siteId, accessToken, runStep) {
+async function uploadInvoiceFile(
+  projectFolderUrl,
+  file,
+  siteId,
+  accessToken,
+  runStep,
+  invoiceValues,
+  supplierId,
+  orderId
+) {
   const { drive, invoiceFolderPath } = await runStep(
     'איתור ספריית המסמכים ותיקיית החשבוניות בפרויקט',
     () => ensureGraphInvoiceFolder(projectFolderUrl, siteId, accessToken)
@@ -471,6 +499,29 @@ async function uploadInvoiceFile(projectFolderUrl, file, siteId, accessToken, ru
         120000
       );
     }
+  );
+
+  if (!fileData || typeof fileData.id !== 'string' || !fileData.id) {
+    throw new Error('Microsoft Graph upload response did not include a file item ID.');
+  }
+
+  await runStep(
+    'עדכון פרטי החשבונית בקובץ',
+    () => graphRequest(
+      `${graphBaseUrl}/drives/${encodeURIComponent(drive.id)}/items/${encodeURIComponent(fileData.id)}/listItem/fields`,
+      accessToken,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          InvoiceNumber: invoiceValues.invoiceNumber,
+          invoiceSum: invoiceValues.totalAmount.toFixed(2),
+          supplierId: supplierId,
+          orderId: orderId
+        })
+      },
+      'invoice metadata update'
+    )
   );
 
   return {
@@ -529,8 +580,18 @@ app.http('submitInvoice', {
       }
 
       const projectFolderUrl = getTextField(formData, 'projectFolderUrl');
+      const supplierId = getTextField(formData, 'supplierId');
+      const orderId = invoiceValues.purchaseOrder;
       if (!projectFolderUrl) {
         return failureResponse(400, 'יש לבחור הזמנת רכש תקינה לפני העלאת החשבונית.');
+      }
+      if (
+        !/^[1-9]\d*$/.test(supplierId)
+        || !/^[1-9]\d*$/.test(orderId)
+        || !Number.isSafeInteger(Number(supplierId))
+        || !Number.isSafeInteger(Number(orderId))
+      ) {
+        return failureResponse(400, 'פרטי הספק או הזמנת הרכש אינם תקינים.');
       }
       completedSteps.push(currentStep);
 
@@ -542,6 +603,22 @@ app.http('submitInvoice', {
         'איתור אתר SharePoint',
         () => getSharePointSite(graphToken)
       );
+      const verifiedSupplierId = await runStep(
+        'אימות הספק מול רשימת הספקים',
+        () => getVerifiedSupplierId(site.id, invoiceValues, graphToken)
+      );
+      if (verifiedSupplierId !== supplierId) {
+        currentStep = 'אימות מזהה הספק שנבחר';
+        return failureResponse(403, 'פרטי הספק לא אומתו מול רשימת הספקים.');
+      }
+      const orderMatchesSupplier = await runStep(
+        'בדיקת הזמנת הרכש מול הספק המאומת',
+        () => orderBelongsToSupplier(site.id, orderId, invoiceValues.supplierName, graphToken)
+      );
+      if (!orderMatchesSupplier) {
+        currentStep = 'אימות הזמנת הרכש שנבחרה';
+        return failureResponse(403, 'הזמנת הרכש אינה משויכת לספק המאומת.');
+      }
       const matchingTaskExists = await runStep(
         'בדיקת חשבונית כפולה ברשימת המשימות',
         () => financeTaskExists(
@@ -557,7 +634,16 @@ app.http('submitInvoice', {
         });
       }
 
-      const uploadResult = await uploadInvoiceFile(projectFolderUrl, invoiceFile, site.id, graphToken, runStep);
+      const uploadResult = await uploadInvoiceFile(
+        projectFolderUrl,
+        invoiceFile,
+        site.id,
+        graphToken,
+        runStep,
+        invoiceValues,
+        Number(verifiedSupplierId),
+        Number(orderId)
+      );
 
       return jsonResponse(200, {
         success: true,

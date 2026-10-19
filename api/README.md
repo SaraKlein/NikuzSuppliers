@@ -19,42 +19,22 @@ suppliers and read the orders and projects lists.
 
 ## Invoice submission API
 
-Currently, `POST /api/submitInvoice` only validates the submitted invoice
-against the `רשימת משימות - כספים` list on the Projects SharePoint site. The
-validator reads these SharePoint internal columns:
+`POST /api/submitInvoice` checks the submitted invoice against the
+`רשימת משימות - כספים` list on the Projects SharePoint site, uploads the PDF to
+the selected project's `חשבוניות` folder, and writes the following metadata
+to the uploaded document's library item:
 
-| Internal name | Display name |
-| --- | --- |
-| `invoiceNumber` | מספר חשבונית |
-| `supplier` | ספק |
+| Internal name | Display name | SharePoint type | Value |
+| --- | --- | --- | --- |
+| `InvoiceNumber` | מספר חשבונית | Single line of text | Invoice number |
+| `invoiceSum` | סכום החשבונית | Single line of text | Total including VAT, formatted to 2 decimals |
+| `supplier` | ID ספק | Lookup to `ספקים` | Verified supplier item ID |
+| `order` | ID הזמנה | Lookup to `הזמנות` | Selected order item ID |
 
-The validator checks whether any row matches the invoice number and verified
-supplier name. The invoice amount is not part of this duplicate check. If a
-matching row exists, the API returns a conflict and blocks the submission
-because the invoice is already in use. If no matching row exists, it confirms
-validation only; it does not create or save an invoice.
-
-When invoice saving is enabled, create these columns in `Invoices` with the
-exact display names and types. Column internal names can differ; the API
-resolves them by display name.
-
-| Display name | SharePoint type |
-| --- | --- |
-| Supplier Number | Single line of text |
-| Supplier Name | Single line of text |
-| Supplier Email | Single line of text |
-| Invoice Number | Single line of text |
-| Invoice Date | Date and time (date only) |
-| Net Amount | Currency |
-| VAT Amount | Currency |
-| Total Amount | Currency |
-| Allocation Number | Single line of text |
-| Document Type | Choice: `חשבונית מס`, `חשבונית זיכוי`, `חשבונית מס / קבלה` |
-| Supplier Notes | Multiple lines of text |
-| Purchase Order | Single line of text (needed when the form sends a purchase order) |
-
-For invoice saving, the built-in `Title` field will be populated with the
-invoice number. Enable list attachments to store the PDF and supporting files.
+The duplicate check reads the `invoiceNumber` and `supplier` columns from the
+finance task list. Metadata updates use Microsoft Graph lookup field names
+`supplierLookupId` and `orderLookupId`. The app needs Microsoft Graph
+application permissions with write access to the Projects site.
 
 Configure these application settings for the Azure Static Web App API:
 
