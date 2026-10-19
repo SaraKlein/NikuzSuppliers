@@ -256,6 +256,11 @@
             grid-template-columns: repeat(3, minmax(0, 1fr));
         }
 
+        .supplier-summary .invoice-field {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 6px;
+        }
+
         .purchase-picker {
             display: grid;
             grid-template-columns: 110px minmax(0, 1fr);
@@ -577,7 +582,7 @@
                 </div>
             </section>
 
-            <button class="submit-button invoice-submit" type="submit">בדיקת התאמה</button>
+            <button class="submit-button invoice-submit" type="submit">העלאת חשבונית</button>
             <p class="status portal-status" id="invoice-status" role="status" aria-live="polite"></p>
         </form>
     </main>
