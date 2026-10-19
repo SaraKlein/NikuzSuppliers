@@ -5,8 +5,8 @@ const siteHost = 'yardend.sharepoint.com';
 const sitePath = '/sites/Projects';
 const siteUrl = `https://${siteHost}${sitePath}`;
 const listName = 'Invoices';
-const financeTaskListName = 'FinanceTaskList';
-const supplierListName = 'Suppliers';
+const financeTaskListName = 'רשימת משימות - כספים';
+const supplierListName = 'ספקים';
 const maxUploadBytes = 50 * 1024 * 1024;
 const invoiceColumns = [
   'SupplierNumber',
