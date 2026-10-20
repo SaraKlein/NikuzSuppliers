@@ -572,7 +572,7 @@ function getInvoiceMetadata(invoiceValues, supplierId, orderId) {
     DocumentType: invoiceValues.documentType,
     LinkedInvoiceNumber: invoiceValues.creditInvoiceNumber,
     _Comments: invoiceValues.supplierNotes,
-    InvoiceDate: invoiceValues.date,
+    InvoiceDate: invoiceValues.invoiceDate,
     CreatedFromSupplierApp: true
   };
 }

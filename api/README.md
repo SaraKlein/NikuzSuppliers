@@ -38,6 +38,7 @@ The uploaded filename keeps the original extension and adds a UTC timestamp
 | Internal name | Display name | SharePoint type | Value |
 | --- | --- | --- | --- |
 | `InvoiceNumber` | מספר חשבונית | Single line of text | Invoice number |
+| `InvoiceDate` | תאריך חשבונית | Date and time | Date selected in the form |
 | `invoiceSum` | סכום החשבונית | Single line of text | Total including VAT entered by the supplier |
 | `supplier` | ID ספק | Lookup to `ספקים` | Verified supplier item ID |
 | `order0` | ID הזמנה | Lookup to `הזמנות` | Selected order item ID |
