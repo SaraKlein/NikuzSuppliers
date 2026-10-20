@@ -4,6 +4,7 @@ const graphBaseUrl = 'https://graph.microsoft.com/v1.0';
 const siteHost = 'yardend.sharepoint.com';
 const sitePath = '/sites/Projects';
 const listName = 'Invoices';
+const additionalDocumentsLibraryName = 'SupplierAdditionalDocuments';
 const financeTaskListName = 'רשימת משימות - כספים';
 const supplierListName = 'ספקים';
 const maxUploadBytes = 50 * 1024 * 1024;
@@ -461,6 +462,74 @@ async function getProjectDriveAndFolder(projectFolderUrl, siteId, accessToken) {
   return { drive, projectFolderPath: drive.relativePath };
 }
 
+async function getDocumentLibraryDrive(siteId, libraryName, accessToken) {
+  let drivesUrl = new URL(`${graphBaseUrl}/sites/${encodeURIComponent(siteId)}/drives`);
+  drivesUrl.searchParams.set('$select', 'id,name');
+
+  while (drivesUrl) {
+    const page = await graphRequest(drivesUrl, accessToken, null, 'document library lookup');
+    const drive = page.value.find((item) => item.name === libraryName);
+    if (drive && typeof drive.id === 'string' && drive.id) {
+      return drive;
+    }
+
+    if (page['@odata.nextLink']) {
+      drivesUrl = new URL(page['@odata.nextLink']);
+      if (drivesUrl.origin !== new URL(graphBaseUrl).origin) {
+        throw new Error('Microsoft Graph returned an unexpected pagination URL');
+      }
+    } else {
+      drivesUrl = null;
+    }
+  }
+
+  throw new Error(`SharePoint document library "${libraryName}" was not found.`);
+}
+
+async function getDriveItemListItemId(driveId, driveItemId, accessToken) {
+  const listItem = await graphRequest(
+    `${graphBaseUrl}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(driveItemId)}/listItem?$select=id`,
+    accessToken,
+    null,
+    'uploaded invoice list item lookup'
+  );
+  const listItemId = Number(listItem && listItem.id);
+  if (!Number.isSafeInteger(listItemId) || listItemId < 1) {
+    throw new Error('Uploaded invoice list item did not include a valid SharePoint ID.');
+  }
+  return listItemId;
+}
+
+async function uploadFileToDrive(driveId, file, accessToken, operation, index, usedNames) {
+  const safeFileName = safeFileNameFromUpload(file.name, index, usedNames);
+  const fileData = await graphRequest(
+    `${graphBaseUrl}/drives/${encodeURIComponent(driveId)}/root:/${encodeGraphPath(safeFileName)}:/content`,
+    accessToken,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type || 'application/octet-stream' },
+      body: Buffer.from(await file.arrayBuffer())
+    },
+    operation,
+    120000
+  );
+  if (!fileData || typeof fileData.id !== 'string' || !fileData.id) {
+    throw new Error(`Microsoft Graph ${operation} response did not include a file item ID.`);
+  }
+  return { fileName: safeFileName, fileData };
+}
+
+function getInvoiceMetadata(invoiceValues, supplierId, orderId) {
+  return {
+    InvoiceNumber: invoiceValues.invoiceNumber,
+    invoiceSum: invoiceValues.totalAmount.toFixed(2),
+    supplierLookupId: Number(supplierId),
+    order0LookupId: Number(orderId),
+    AllocationNumber: invoiceValues.allocationNumber,
+    _Comments: invoiceValues.supplierNotes
+  };
+}
+
 async function uploadInvoiceFile(
   projectFolderUrl,
   file,
@@ -507,24 +576,77 @@ async function uploadInvoiceFile(
       {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          InvoiceNumber: invoiceValues.invoiceNumber,
-          invoiceSum: invoiceValues.totalAmount.toFixed(2),
-          supplierLookupId: Number(supplierId),
-          order0LookupId: Number(orderId),
-          AllocationNumber: invoiceValues.allocationNumber,
-          _Comments: invoiceValues.supplierNotes
-        })
+        body: JSON.stringify(getInvoiceMetadata(invoiceValues, supplierId, orderId))
       },
       'invoice metadata update'
     )
   );
+  const invoiceListItemId = await runStep(
+    'קבלת מזהה פריט החשבונית לקישור הצרופות',
+    () => getDriveItemListItemId(drive.id, fileData.id, accessToken)
+  );
 
   return {
+    listItemId: invoiceListItemId,
     fileName: safeFileName,
     fileUrl: fileData.webUrl || null,
     folderServerRelativeUrl: resolveProjectFolderPath(projectFolderUrl)
   };
+}
+
+async function uploadSupportingDocuments(
+  files,
+  siteId,
+  accessToken,
+  runStep,
+  invoiceValues,
+  supplierId,
+  orderId,
+  invoiceListItemId
+) {
+  if (!files.length) {
+    return [];
+  }
+
+  const drive = await runStep(
+    `איתור ספריית ${additionalDocumentsLibraryName}`,
+    () => getDocumentLibraryDrive(siteId, additionalDocumentsLibraryName, accessToken)
+  );
+  const usedNames = new Set();
+  const uploadedFiles = [];
+
+  for (const [index, file] of files.entries()) {
+    const uploaded = await runStep(
+      `העלאת הצרופה ${file.name} לספריית ${additionalDocumentsLibraryName}`,
+      () => uploadFileToDrive(
+        drive.id,
+        file,
+        accessToken,
+        'additional document upload',
+        index + 1,
+        usedNames
+      )
+    );
+    await runStep(
+      `עדכון פרטי הצרופה וקישור לחשבונית ${uploaded.fileName}`,
+      () => graphRequest(
+        `${graphBaseUrl}/drives/${encodeURIComponent(drive.id)}/items/${encodeURIComponent(uploaded.fileData.id)}/listItem/fields`,
+        accessToken,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...getInvoiceMetadata(invoiceValues, supplierId, orderId),
+            InvoiceLookupLookupId: invoiceListItemId
+          })
+        },
+        'additional document metadata update'
+      )
+    );
+    uploadedFiles.push(uploaded.fileName);
+  }
+
+  return uploadedFiles;
 }
 
 app.http('submitInvoice', {
@@ -564,6 +686,12 @@ app.http('submitInvoice', {
       const invoiceFile = formData.get('invoiceFile');
       if (!isFile(invoiceFile)) {
         return failureResponse(400, 'יש לצרף את קובץ החשבונית.');
+      }
+
+      const supportingFiles = formData.getAll('supportingFiles')
+        .filter((file) => isFile(file) && file.name);
+      if (supportingFiles.some((file) => file.size > maxUploadBytes)) {
+        return failureResponse(400, 'גודל אחת מהצרופות הנוספות עולה על 50 MB.');
       }
 
       if (invoiceFile.size > maxUploadBytes) {
@@ -647,6 +775,16 @@ app.http('submitInvoice', {
         verifiedSupplierId,
         orderId
       );
+      const uploadedSupportingFiles = await uploadSupportingDocuments(
+        supportingFiles,
+        site.id,
+        graphToken,
+        runStep,
+        invoiceValues,
+        verifiedSupplierId,
+        orderId,
+        uploadResult.listItemId
+      );
 
       return jsonResponse(200, {
         success: true,
@@ -655,6 +793,7 @@ app.http('submitInvoice', {
         fileName: uploadResult.fileName,
         fileUrl: uploadResult.fileUrl,
         folderServerRelativeUrl: uploadResult.folderServerRelativeUrl,
+        supportingFiles: uploadedSupportingFiles,
         completedSteps
       });
     } catch (error) {

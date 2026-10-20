@@ -24,8 +24,9 @@ suppliers and read the orders and projects lists.
 
 `POST /api/submitInvoice` checks the submitted invoice against the
 `רשימת משימות - כספים` list on the Projects SharePoint site, uploads the PDF to
-the selected project's folder, and currently writes these metadata fields to
-the uploaded document's library item while the metadata update is tested:
+the selected project's folder, and writes the metadata fields below to the
+uploaded document's library item. Any additional documents are uploaded to the
+`SupplierAdditionalDocuments` document library and linked to that invoice.
 
 The uploaded filename keeps the original extension and adds a UTC timestamp
 (`_yyyyMMdd_HHmmssfff`) before it, for example `invoice_20261019_122135642.pdf`.
@@ -38,6 +39,11 @@ The uploaded filename keeps the original extension and adds a UTC timestamp
 | `order0` | ID הזמנה | Lookup to `הזמנות` | Selected order item ID |
 | `AllocationNumber` | מספר הקצאה | Single line of text | Allocation number entered in the form |
 | `_Comments` | הערות לספק | Multiple lines of text | Supplier notes entered in the form |
+
+Each additional document receives the same metadata as the invoice plus
+`InvoiceLookupLookupId` (the Graph lookup-ID property for `InvoiceLookup`),
+which points to the uploaded invoice's SharePoint list-item ID. Additional
+files are optional and limited to 50 MB each.
 
 The supplier enters the total amount including VAT; this value is written
 directly to `invoiceSum`.
