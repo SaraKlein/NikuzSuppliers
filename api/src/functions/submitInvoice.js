@@ -685,7 +685,7 @@ async function uploadSupportingDocuments(
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ...getInvoiceMetadata(invoiceValues, supplierId, orderId),
-            InvoiceLookupLookupId: invoiceListItemId
+            //InvoiceLookupLookupId: invoiceListItemId
           })
         },
         'additional document metadata update'
