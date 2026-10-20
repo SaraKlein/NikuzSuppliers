@@ -5,6 +5,7 @@ const siteHost = 'yardend.sharepoint.com';
 const sitePath = '/sites/Projects';
 const supplierListName = 'ספקים';
 const ordersListName = 'הזמנות';
+const financeTaskListName = 'רשימת משימות - כספים';
 const supplierFields = ['field_1', 'Title', 'field_7'];
 
 function jsonResponse(status, body) {
@@ -171,6 +172,32 @@ async function findVerifiedSupplierIds(siteId, values, accessToken) {
   });
 }
 
+async function getSupplierInvoiceNumbers(siteId, supplierName, accessToken) {
+  const financeList = await getList(siteId, financeTaskListName, accessToken);
+  const items = await getItems(
+    siteId,
+    financeList.id,
+    ['invoiceNumber', 'supplier'],
+    accessToken,
+    'supplier invoice history lookup'
+  );
+  const invoiceNumbers = new Set();
+
+  for (const item of items) {
+    const fields = item.fields || {};
+    const invoiceNumber = fields.invoiceNumber;
+    if (
+      normalize(fields.supplier) === normalize(supplierName)
+      && (typeof invoiceNumber === 'string' || typeof invoiceNumber === 'number')
+      && String(invoiceNumber).trim()
+    ) {
+      invoiceNumbers.add(String(invoiceNumber).trim());
+    }
+  }
+
+  return [...invoiceNumbers].sort((left, right) => left.localeCompare(right, 'he'));
+}
+
 app.http('getPurchaseOrders', {
   methods: ['POST'],
   authLevel: 'anonymous',
@@ -228,7 +255,10 @@ app.http('getPurchaseOrders', {
         return jsonResponse(403, { error: 'פרטי הספק לא אומתו מול SharePoint.' });
       }
 
-      const ordersList = await getList(site.id, ordersListName, accessToken);
+      const [ordersList, invoiceNumbers] = await Promise.all([
+        getList(site.id, ordersListName, accessToken),
+        getSupplierInvoiceNumbers(site.id, supplierName, accessToken)
+      ]);
       const columns = await getColumns(site.id, ordersList.id, accessToken);
       const projectColumn = columns.find((column) => (
         (column.name === 'Project' || column.displayName === 'Project')
@@ -288,7 +318,7 @@ app.http('getPurchaseOrders', {
         })
         .filter((order) => order.title);
 
-      return jsonResponse(200, { orders: result });
+      return jsonResponse(200, { orders: result, invoiceNumbers });
     } catch (error) {
       context.error('Purchase order lookup failed.', error);
       return jsonResponse(502, { error: 'לא ניתן לטעון את הזמנות הרכש כרגע.' });

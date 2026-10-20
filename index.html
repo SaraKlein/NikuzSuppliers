@@ -612,6 +612,13 @@
                             <option value="tax-invoice">חשבונית מס</option>
                             <option value="credit-invoice">חשבונית זיכוי</option>
                             <option value="invoice-receipt">חשבונית מס / קבלה</option>
+                            <option value="business-invoice">חשבונית עסקה</option>
+                        </select>
+                    </div>
+                    <div class="invoice-field" id="credit-invoice-field" hidden>
+                        <label for="credit-invoice-number">מספר החשבונית המקורית</label>
+                        <select id="credit-invoice-number" name="creditInvoiceNumber">
+                            <option value="">בחירת חשבונית מקורית</option>
                         </select>
                     </div>
                     <div class="invoice-field full-width">
@@ -651,6 +658,10 @@
         const purchaseOrderSelect = document.getElementById('purchase-order');
         const purchaseOrderNotice = document.getElementById('purchase-order-notice');
         const purchaseOrders = new Map();
+        const creditInvoiceField = document.getElementById('credit-invoice-field');
+        const creditInvoiceSelect = document.getElementById('credit-invoice-number');
+        const documentTypeSelect = invoiceForm.elements.documentType;
+        let supplierInvoiceNumbers = [];
         const invoiceTotalInput = invoiceForm.elements.invoiceTotal;
         const formatCurrency = new Intl.NumberFormat('he-IL', {
             style: 'currency',
@@ -681,6 +692,24 @@
                 ? formatOrderAmount(order.remainingAmount)
                 : '—';
             updateInvoiceAmountLimit();
+        }
+
+        function updateCreditInvoiceField() {
+            const isCreditInvoice = documentTypeSelect.value === 'credit-invoice';
+            creditInvoiceField.hidden = !isCreditInvoice;
+            creditInvoiceSelect.required = isCreditInvoice;
+            if (!isCreditInvoice) {
+                creditInvoiceSelect.value = '';
+                setFieldValidationError(creditInvoiceSelect, '');
+            }
+        }
+
+        function populateCreditInvoiceNumbers(invoiceNumbers) {
+            supplierInvoiceNumbers = invoiceNumbers;
+            creditInvoiceSelect.replaceChildren(new Option('בחירת חשבונית מקורית', ''));
+            for (const invoiceNumber of supplierInvoiceNumbers) {
+                creditInvoiceSelect.add(new Option(invoiceNumber, invoiceNumber));
+            }
         }
 
         form.addEventListener('submit', async (event) => {
@@ -739,10 +768,11 @@
                         supplierEmail: form.elements.supplierEmail.value.trim()
                     };
                     const orderListUnavailableMessage =
-                        'רשימת הזמנות הרכש עדיין לא מחוברת. ניתן להמשיך למילוי הטופס.';
+                        'לא ניתן לטעון כרגע את הזמנות הרכש והחשבוניות הקודמות של הספק.';
                     let noticeMessage = orderListUnavailableMessage;
                     purchaseOrders.clear();
                     purchaseOrderSelect.replaceChildren(new Option('בחירת הזמנת רכש', ''));
+                    populateCreditInvoiceNumbers([]);
 
                     try {
                         const ordersResponse = await fetch('/api/getPurchaseOrders', {
@@ -758,6 +788,8 @@
                         if (
                             ordersResult
                             && Array.isArray(ordersResult.orders)
+                            && Array.isArray(ordersResult.invoiceNumbers)
+                            && ordersResult.invoiceNumbers.every((number) => typeof number === 'string')
                             && ordersResult.orders.every((order) => (
                                 order
                                 && typeof order.id === 'string'
@@ -770,16 +802,20 @@
                                 && Number.isFinite(order.remainingAmount)
                             ))
                         ) {
+                            populateCreditInvoiceNumbers(ordersResult.invoiceNumbers);
                             for (const order of ordersResult.orders) {
                                 purchaseOrders.set(order.id, order);
                                 purchaseOrderSelect.add(new Option(order.title, order.id));
                             }
                             noticeMessage = ordersResult.orders.length
-                                ? `פרטי הספק אומתו. נמצאו ${ordersResult.orders.length} הזמנות רכש.`
-                                : 'פרטי הספק אומתו, אך לא נמצאו הזמנות רכש המשויכות אליו.';
+                                ? `פרטי הספק אומתו. נמצאו ${ordersResult.orders.length} הזמנות רכש ו-${supplierInvoiceNumbers.length} חשבוניות קודמות.`
+                                : `פרטי הספק אומתו, אך לא נמצאו הזמנות רכש המשויכות אליו. נמצאו ${supplierInvoiceNumbers.length} חשבוניות קודמות.`;
+                        } else {
+                            throw new Error('Purchase order response had an invalid shape.');
                         }
                     } catch (error) {
-                        console.error('Could not load purchase orders.', error);
+                        console.error('Could not load purchase orders and invoice history.', error);
+                        noticeMessage = orderListUnavailableMessage;
                     }
                     purchaseOrderNotice.textContent = noticeMessage;
                     renderPurchaseOrderDetails();
@@ -802,6 +838,8 @@
         });
 
         purchaseOrderSelect.addEventListener('change', renderPurchaseOrderDetails);
+        documentTypeSelect.addEventListener('change', updateCreditInvoiceField);
+        updateCreditInvoiceField();
 
         function formatSubmissionProgress(result, errorMessage) {
             const messages = Array.isArray(result && result.completedSteps)
@@ -1017,6 +1055,7 @@
             invoiceForm.reset();
             form.reset();
             purchaseOrders.clear();
+            populateCreditInvoiceNumbers([]);
             purchaseOrderSelect.replaceChildren(new Option('בחירת הזמנת רכש', ''));
             purchaseOrderNotice.textContent = 'פרטי הספק אומתו.';
             renderPurchaseOrderDetails();

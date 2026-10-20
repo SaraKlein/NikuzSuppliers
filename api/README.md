@@ -16,6 +16,10 @@ and `ProjectFolderUrl` from the `Project` lookup target. It also returns
 `money` (order amount), `sumOfInvoice` (amount already invoiced), and
 `remainingAmount` (`money - sumOfInvoice`) for each order.
 A blank `sumOfInvoice` is treated as zero.
+The response also includes distinct `invoiceNumbers` from the
+`רשימת משימות - כספים` list where `supplier` matches the verified supplier.
+When `DocumentType` is `חשבונית זיכוי`, the form requires one of those numbers;
+the API verifies the selected number belongs to that supplier before upload.
 
 The app registration needs read access to the Projects site to validate
 suppliers and read the orders and projects lists.
@@ -38,6 +42,7 @@ The uploaded filename keeps the original extension and adds a UTC timestamp
 | `supplier` | ID ספק | Lookup to `ספקים` | Verified supplier item ID |
 | `order0` | ID הזמנה | Lookup to `הזמנות` | Selected order item ID |
 | `AllocationNumber` | מספר הקצאה | Single line of text | Allocation number entered in the form |
+| `DocumentType` | סוג מסמך | Choice | Selected document type |
 | `_Comments` | הערות לספק | Multiple lines of text | Supplier notes entered in the form |
 
 Each additional document receives the same metadata as the invoice plus

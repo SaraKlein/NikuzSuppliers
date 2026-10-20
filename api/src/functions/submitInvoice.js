@@ -167,6 +167,44 @@ async function financeTaskExists(siteId, invoiceValues, accessToken) {
   return false;
 }
 
+async function supplierInvoiceExists(siteId, supplierName, invoiceNumber, accessToken) {
+  const listsUrl = new URL(`${graphBaseUrl}/sites/${siteId}/lists`);
+  listsUrl.searchParams.set('$filter', `displayName eq '${financeTaskListName}'`);
+  listsUrl.searchParams.set('$select', 'id,displayName');
+  const lists = await graphRequest(listsUrl, accessToken, null, 'finance task list lookup');
+  const list = lists.value.find((item) => item.displayName === financeTaskListName);
+  if (!list) {
+    throw new Error(`SharePoint list "${financeTaskListName}" was not found`);
+  }
+
+  let itemsUrl = new URL(`${graphBaseUrl}/sites/${siteId}/lists/${list.id}/items`);
+  itemsUrl.searchParams.set('$expand', 'fields($select=invoiceNumber,supplier)');
+  itemsUrl.searchParams.set('$top', '200');
+
+  while (itemsUrl) {
+    const page = await graphRequest(itemsUrl, accessToken, null, 'credit invoice reference verification');
+    const found = page.value.some((item) => {
+      const fields = item.fields || {};
+      return String(fields.invoiceNumber || '').trim() === invoiceNumber
+        && String(fields.supplier || '').trim().toLowerCase() === supplierName.toLowerCase();
+    });
+    if (found) {
+      return true;
+    }
+
+    if (page['@odata.nextLink']) {
+      itemsUrl = new URL(page['@odata.nextLink']);
+      if (itemsUrl.origin !== new URL(graphBaseUrl).origin) {
+        throw new Error('Microsoft Graph returned an unexpected pagination URL');
+      }
+    } else {
+      itemsUrl = null;
+    }
+  }
+
+  return false;
+}
+
 async function getVerifiedSupplierId(siteId, values, accessToken) {
   const listsUrl = new URL(`${graphBaseUrl}/sites/${siteId}/lists`);
   listsUrl.searchParams.set('$filter', `displayName eq '${supplierListName}'`);
@@ -280,6 +318,7 @@ function getInvoiceValues(formData) {
   const totalText = getTextField(formData, 'invoiceTotal');
   const allocationNumber = getTextField(formData, 'allocationNumber');
   const documentType = getTextField(formData, 'documentType');
+  const creditInvoiceNumber = getTextField(formData, 'creditInvoiceNumber');
   const supplierNotes = getTextField(formData, 'supplierNotes');
   const purchaseOrder = getTextField(formData, 'purchaseOrder');
   const totalAmount = Number(totalText);
@@ -296,7 +335,9 @@ function getInvoiceValues(formData) {
     || !totalText
     || !Number.isFinite(totalAmount)
     || totalAmount < 0.01
-    || !['tax-invoice', 'credit-invoice', 'invoice-receipt'].includes(documentType)
+    || !['tax-invoice', 'credit-invoice', 'invoice-receipt', 'business-invoice'].includes(documentType)
+    || (documentType === 'credit-invoice' && !creditInvoiceNumber)
+    || creditInvoiceNumber.length > 64
     || allocationNumber.length > 64
     || supplierNotes.length > 5000
     || purchaseOrder.length > 128
@@ -312,10 +353,12 @@ function getInvoiceValues(formData) {
     invoiceDate,
     totalAmount,
     allocationNumber,
+    creditInvoiceNumber,
     documentType: {
       'tax-invoice': 'חשבונית מס',
       'credit-invoice': 'חשבונית זיכוי',
-      'invoice-receipt': 'חשבונית מס / קבלה'
+      'invoice-receipt': 'חשבונית מס / קבלה',
+      'business-invoice': 'חשבונית עסקה'
     }[documentType],
     supplierNotes,
     purchaseOrder
@@ -526,6 +569,7 @@ function getInvoiceMetadata(invoiceValues, supplierId, orderId) {
     supplierLookupId: Number(supplierId),
     order0LookupId: Number(orderId),
     AllocationNumber: invoiceValues.allocationNumber,
+    DocumentType: invoiceValues.documentType,
     _Comments: invoiceValues.supplierNotes
   };
 }
@@ -734,6 +778,21 @@ app.http('submitInvoice', {
       if (verifiedSupplierId !== supplierId) {
         currentStep = 'אימות מזהה הספק שנבחר';
         return failureResponse(403, 'פרטי הספק לא אומתו מול רשימת הספקים.');
+      }
+      if (
+        invoiceValues.documentType === 'חשבונית זיכוי'
+        && !await runStep(
+          'אימות מספר החשבונית המקורית מול החשבוניות של הספק',
+          () => supplierInvoiceExists(
+            site.id,
+            invoiceValues.supplierName,
+            invoiceValues.creditInvoiceNumber,
+            graphToken
+          )
+        )
+      ) {
+        currentStep = 'אימות מספר החשבונית המקורית';
+        return failureResponse(400, 'מספר החשבונית המקורית שנבחרה אינו מופיע בחשבוניות של הספק.');
       }
       const verifiedPurchaseOrder = await runStep(
         'אימות הזמנת הרכש ויתרת הסכום מול הספק',
