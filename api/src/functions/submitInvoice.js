@@ -204,7 +204,31 @@ async function getVerifiedSupplierId(siteId, values, accessToken) {
   return null;
 }
 
-async function orderBelongsToSupplier(siteId, orderId, supplierName, accessToken) {
+function getOrderAmount(value, fieldName, emptyValue) {
+  if ((typeof value === 'string' && !value.trim()) || value == null) {
+    if (emptyValue !== undefined) {
+      return emptyValue;
+    }
+    throw new Error(`Purchase order field "${fieldName}" is missing.`);
+  }
+
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    throw new Error(`Purchase order field "${fieldName}" is not a valid amount.`);
+  }
+
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) {
+    throw new Error(`Purchase order field "${fieldName}" is not a valid amount.`);
+  }
+
+  return amount;
+}
+
+function roundCurrency(amount) {
+  return Math.round((amount + Number.EPSILON) * 100) / 100;
+}
+
+async function getVerifiedPurchaseOrder(siteId, orderId, supplierName, accessToken) {
   const listsUrl = new URL(`${graphBaseUrl}/sites/${siteId}/lists`);
   listsUrl.searchParams.set('$filter', "displayName eq 'הזמנות'");
   listsUrl.searchParams.set('$select', 'id,displayName');
@@ -217,10 +241,20 @@ async function orderBelongsToSupplier(siteId, orderId, supplierName, accessToken
   const itemUrl = new URL(
     `${graphBaseUrl}/sites/${siteId}/lists/${encodeURIComponent(list.id)}/items/${encodeURIComponent(orderId)}`
   );
-  itemUrl.searchParams.set('$expand', 'fields($select=SupplierText)');
+  itemUrl.searchParams.set('$expand', 'fields($select=SupplierText,money,sumOfInvoice)');
   const order = await graphRequest(itemUrl, accessToken, null, 'purchase order verification');
-  const orderSupplier = String((order.fields || {}).SupplierText || '').trim().toLowerCase();
-  return orderSupplier === supplierName.trim().toLowerCase();
+  const fields = order.fields || {};
+  const orderSupplier = String(fields.SupplierText || '').trim().toLowerCase();
+  if (orderSupplier !== supplierName.trim().toLowerCase()) {
+    return { belongsToSupplier: false };
+  }
+
+  const money = getOrderAmount(fields.money, 'money');
+  const sumOfInvoice = getOrderAmount(fields.sumOfInvoice, 'sumOfInvoice', 0);
+  return {
+    belongsToSupplier: true,
+    remainingAmount: roundCurrency(money - sumOfInvoice)
+  };
 }
 
 function getTextField(formData, name) {
@@ -466,7 +500,7 @@ async function uploadInvoiceFile(
   }
 
   await runStep(
-    'עדכון שדות InvoiceNumber, invoiceSum, supplier ו-order0',
+    'עדכון שדות החשבונית והזמנת הרכש',
     () => graphRequest(
       `${graphBaseUrl}/drives/${encodeURIComponent(drive.id)}/items/${encodeURIComponent(fileData.id)}/listItem/fields`,
       accessToken,
@@ -477,7 +511,9 @@ async function uploadInvoiceFile(
           InvoiceNumber: invoiceValues.invoiceNumber,
           invoiceSum: invoiceValues.totalAmount.toFixed(2),
           supplierLookupId: Number(supplierId),
-          order0LookupId: Number(orderId)
+          order0LookupId: Number(orderId),
+          AllocationNumber: invoiceValues.allocationNumber,
+          _Comments: invoiceValues.supplierNotes
         })
       },
       'invoice metadata update'
@@ -571,13 +607,20 @@ app.http('submitInvoice', {
         currentStep = 'אימות מזהה הספק שנבחר';
         return failureResponse(403, 'פרטי הספק לא אומתו מול רשימת הספקים.');
       }
-      const orderMatchesSupplier = await runStep(
-        'בדיקת הזמנת הרכש מול הספק המאומת',
-        () => orderBelongsToSupplier(site.id, orderId, invoiceValues.supplierName, graphToken)
+      const verifiedPurchaseOrder = await runStep(
+        'אימות הזמנת הרכש ויתרת הסכום מול הספק',
+        () => getVerifiedPurchaseOrder(site.id, orderId, invoiceValues.supplierName, graphToken)
       );
-      if (!orderMatchesSupplier) {
+      if (!verifiedPurchaseOrder.belongsToSupplier) {
         currentStep = 'אימות הזמנת הרכש שנבחרה';
         return failureResponse(403, 'הזמנת הרכש אינה משויכת לספק המאומת.');
+      }
+      if (invoiceValues.totalAmount > verifiedPurchaseOrder.remainingAmount) {
+        currentStep = 'בדיקת סכום החשבונית מול יתרת הזמנת הרכש';
+        return failureResponse(
+          400,
+          `סכום החשבונית גבוה מהיתרה שנותרה להזמנה (${verifiedPurchaseOrder.remainingAmount.toFixed(2)} ₪).`
+        );
       }
       const matchingTaskExists = await runStep(
         'בדיקת חשבונית כפולה ברשימת המשימות',

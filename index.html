@@ -323,7 +323,7 @@
         }
 
         .purchase-summary {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             border: 1px solid #e0e7ec;
             border-radius: 3px;
             background: #f6f8f9;
@@ -549,6 +549,12 @@
                         </div>
                         <div class="purchase-detail"><span>פרויקט</span><strong id="purchase-project-title">—</strong>
                         </div>
+                        <div class="purchase-detail"><span>סכום ההזמנה</span><strong id="purchase-order-money">—</strong>
+                        </div>
+                        <div class="purchase-detail"><span>שולם עד כה</span><strong id="purchase-order-paid">—</strong>
+                        </div>
+                        <div class="purchase-detail"><span>יתרה להזמנה</span><strong id="purchase-order-remaining">—</strong>
+                        </div>
                     </div>
                     <input id="purchase-project-id" name="projectId" type="hidden">
                     <input id="purchase-project-folder-value" name="projectFolderUrl" type="hidden">
@@ -621,6 +627,15 @@
         const purchaseOrderSelect = document.getElementById('purchase-order');
         const purchaseOrderNotice = document.getElementById('purchase-order-notice');
         const purchaseOrders = new Map();
+        const invoiceTotalInput = invoiceForm.elements.invoiceTotal;
+        const formatCurrency = new Intl.NumberFormat('he-IL', {
+            style: 'currency',
+            currency: 'ILS'
+        });
+
+        function formatOrderAmount(amount) {
+            return Number.isFinite(amount) ? formatCurrency.format(amount) : '—';
+        }
 
         function renderPurchaseOrderDetails() {
             const order = purchaseOrders.get(purchaseOrderSelect.value);
@@ -632,6 +647,16 @@
             document.getElementById('purchase-project-folder-value').value = order
                 ? order.projectFolderUrl
                 : '';
+            document.getElementById('purchase-order-money').textContent = order
+                ? formatOrderAmount(order.money)
+                : '—';
+            document.getElementById('purchase-order-paid').textContent = order
+                ? formatOrderAmount(order.sumOfInvoice)
+                : '—';
+            document.getElementById('purchase-order-remaining').textContent = order
+                ? formatOrderAmount(order.remainingAmount)
+                : '—';
+            updateInvoiceAmountLimit(true);
         }
 
         form.addEventListener('submit', async (event) => {
@@ -716,6 +741,9 @@
                                 && typeof order.projectId === 'string'
                                 && typeof order.projectTitle === 'string'
                                 && typeof order.projectFolderUrl === 'string'
+                                && Number.isFinite(order.money)
+                                && Number.isFinite(order.sumOfInvoice)
+                                && Number.isFinite(order.remainingAmount)
                             ))
                         ) {
                             for (const order of ordersResult.orders) {
@@ -769,10 +797,46 @@
             return messages.join('\n');
         }
 
+        let activeInvoiceAmountError = '';
+
+        function updateInvoiceAmountLimit(showMessage) {
+            const order = purchaseOrders.get(purchaseOrderSelect.value);
+            const amount = Number(invoiceTotalInput.value);
+            const message = order
+                && invoiceTotalInput.value
+                && Number.isFinite(amount)
+                && amount > order.remainingAmount
+                ? `סכום החשבונית גבוה מהיתרה שנותרה להזמנה (${formatOrderAmount(order.remainingAmount)}).`
+                : '';
+
+            invoiceTotalInput.setCustomValidity(message);
+            if (message) {
+                invoiceTotalInput.classList.add('field-invalid');
+                invoiceTotalInput.setAttribute('aria-invalid', 'true');
+                if (showMessage) {
+                    invoiceStatus.classList.remove('is-success');
+                    invoiceStatus.textContent = message;
+                }
+            } else {
+                invoiceTotalInput.classList.remove('field-invalid');
+                invoiceTotalInput.removeAttribute('aria-invalid');
+                if (activeInvoiceAmountError && invoiceStatus.textContent.includes(activeInvoiceAmountError)) {
+                    invoiceStatus.textContent = invoiceStatus.textContent
+                        .replace(activeInvoiceAmountError, '')
+                        .split('\n')
+                        .filter(Boolean)
+                        .join('\n');
+                }
+            }
+            activeInvoiceAmountError = message;
+            return message;
+        }
+
         function validateInvoiceForm() {
             const requiredFields = [...invoiceForm.querySelectorAll('[required]')];
             const missingFields = [];
             const invalidFields = [];
+            const amountLimitError = updateInvoiceAmountLimit(true);
             let firstInvalidField = null;
 
             invoiceForm.querySelectorAll('.field-invalid').forEach((field) => {
@@ -820,6 +884,9 @@
                 if (invalidFields.length) {
                     messages.push(`נא לבדוק את הערכים בשדות: ${[...new Set(invalidFields)].join(', ')}.`);
                 }
+                if (amountLimitError) {
+                    messages.push(amountLimitError);
+                }
                 invoiceStatus.textContent = messages.join('\n');
                 firstInvalidField?.focus();
                 return false;
@@ -827,6 +894,8 @@
 
             return true;
         }
+
+        invoiceTotalInput.addEventListener('input', () => updateInvoiceAmountLimit(true));
 
         invoiceForm.addEventListener('input', (event) => {
             if (event.target.classList.contains('field-invalid') && event.target.validity.valid) {

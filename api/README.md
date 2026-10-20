@@ -12,7 +12,10 @@ The `POST /api/getPurchaseOrders` endpoint repeats that supplier check, then
 returns items from the `הזמנות` list whose `SupplierText` field matches the
 verified supplier name. The current diagnostic response includes each order's
 SharePoint item ID and `Title`, plus the referenced project's ID and `Title`
-and `ProjectFolderUrl` from the `Project` lookup target.
+and `ProjectFolderUrl` from the `Project` lookup target. It also returns
+`money` (order amount), `sumOfInvoice` (amount already invoiced), and
+`remainingAmount` (`money - sumOfInvoice`) for each order.
+A blank `sumOfInvoice` is treated as zero.
 
 The app registration needs read access to the Projects site to validate
 suppliers and read the orders and projects lists.
@@ -33,9 +36,14 @@ The uploaded filename keeps the original extension and adds a UTC timestamp
 | `invoiceSum` | סכום החשבונית | Single line of text | Total including VAT entered by the supplier |
 | `supplier` | ID ספק | Lookup to `ספקים` | Verified supplier item ID |
 | `order0` | ID הזמנה | Lookup to `הזמנות` | Selected order item ID |
+| `AllocationNumber` | מספר הקצאה | Single line of text | Allocation number entered in the form |
+| `_Comments` | הערות לספק | Multiple lines of text | Supplier notes entered in the form |
 
 The supplier enters the total amount including VAT; this value is written
 directly to `invoiceSum`.
+The invoice amount may not exceed the selected order's remaining balance. This
+is checked in the client before submission and verified again by the API using
+the current `money` and `sumOfInvoice` values from the order list.
 
 The duplicate check reads the `invoiceNumber` and `supplier` columns from the
 finance task list.

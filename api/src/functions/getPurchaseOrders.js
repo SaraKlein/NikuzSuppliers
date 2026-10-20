@@ -135,6 +135,30 @@ function lookupId(value) {
   return String(value).split(',')[0].trim();
 }
 
+function getOrderAmount(value, fieldName, emptyValue) {
+  if ((typeof value === 'string' && !value.trim()) || value == null) {
+    if (emptyValue !== undefined) {
+      return emptyValue;
+    }
+    throw new Error(`Purchase order field "${fieldName}" is missing.`);
+  }
+
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    throw new Error(`Purchase order field "${fieldName}" is not a valid amount.`);
+  }
+
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) {
+    throw new Error(`Purchase order field "${fieldName}" is not a valid amount.`);
+  }
+
+  return amount;
+}
+
+function roundCurrency(amount) {
+  return Math.round((amount + Number.EPSILON) * 100) / 100;
+}
+
 async function findVerifiedSupplierIds(siteId, values, accessToken) {
   const supplierList = await getList(siteId, supplierListName, accessToken);
   const items = await getItems(siteId, supplierList.id, supplierFields, accessToken, 'supplier verification');
@@ -220,7 +244,7 @@ app.http('getPurchaseOrders', {
         getItems(
           site.id,
           ordersList.id,
-          ['Title', 'SupplierText', `${projectColumn.name}LookupId`],
+          ['Title', 'SupplierText', 'money', 'sumOfInvoice', `${projectColumn.name}LookupId`],
           accessToken,
           'purchase order lookup'
         ),
@@ -249,12 +273,17 @@ app.http('getPurchaseOrders', {
           const fields = order.fields || {};
           const projectId = lookupId(fields[`${projectColumn.name}LookupId`]);
           const project = projectDetails.get(projectId);
+          const money = getOrderAmount(fields.money, 'money');
+          const sumOfInvoice = getOrderAmount(fields.sumOfInvoice, 'sumOfInvoice', 0);
           return {
             id: String(order.id),
             title: typeof fields.Title === 'string' ? fields.Title : '',
             projectId,
             projectTitle: project ? project.title : '',
-            projectFolderUrl: project ? project.projectFolderUrl : ''
+            projectFolderUrl: project ? project.projectFolderUrl : '',
+            money,
+            sumOfInvoice,
+            remainingAmount: roundCurrency(money - sumOfInvoice)
           };
         })
         .filter((order) => order.title);
