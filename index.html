@@ -176,7 +176,7 @@
             align-items: center;
             justify-content: space-between;
             gap: 18px;
-            margin: 0 calc((min(100vw, 100%) - min(100vw - 40px, 1240px)) / -2);
+            margin: 10px;
             padding: 0 max(20px, calc((100vw - 1240px) / 2));
             background: #0873a8;
             color: #fff;
@@ -508,7 +508,7 @@
             </div>
             <nav class="portal-nav" aria-label="ניווט ראשי">
                 <span class="active" aria-current="page">הגשת חשבונית</span>
-               <!--<span>החשבוניות שלי</span>-->
+                <!--<span>החשבוניות שלי</span>-->
                 <button type="button" id="logout-button">יציאה</button>
             </nav>
         </header>
@@ -545,8 +545,10 @@
                         </select>
                     </div>
                     <div class="purchase-summary" aria-label="פרטי הזמנת רכש">
-                        <div class="purchase-detail"><span>מזהה הזמנה</span><strong id="purchase-order-id">—</strong></div>
-                        <div class="purchase-detail"><span>פרויקט</span><strong id="purchase-project-title">—</strong></div>
+                        <div class="purchase-detail"><span>מזהה הזמנה</span><strong id="purchase-order-id">—</strong>
+                        </div>
+                        <div class="purchase-detail"><span>פרויקט</span><strong id="purchase-project-title">—</strong>
+                        </div>
                     </div>
                     <input id="purchase-project-id" name="projectId" type="hidden">
                     <input id="purchase-project-folder-value" name="projectFolderUrl" type="hidden">
@@ -566,7 +568,8 @@
                     </div>
                     <div class="invoice-field">
                         <label for="invoice-total">סכום כולל מע״מ (₪)</label>
-                        <input id="invoice-total" name="invoiceTotal" type="number" min="0.01" step="0.01" inputmode="decimal" required>
+                        <input id="invoice-total" name="invoiceTotal" type="number" min="0.01" step="0.01"
+                            inputmode="decimal" required>
                     </div>
                     <div class="invoice-field">
                         <label for="allocation-number">מספר הקצאה</label>
@@ -592,7 +595,8 @@
                 <h2 class="panel-title" id="documents-panel-title">צירוף מסמכים</h2>
                 <div class="panel-content">
                     <div class="file-row">
-                        <label for="invoice-file">חשבונית (PDF) <span class="required-mark" aria-hidden="true">*</span></label>
+                        <label for="invoice-file">חשבונית (PDF) <span class="required-mark"
+                                aria-hidden="true">*</span></label>
                         <input id="invoice-file" name="invoiceFile" type="file" accept="application/pdf,.pdf" required>
                     </div>
                     <div class="file-row">
