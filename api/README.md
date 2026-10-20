@@ -43,6 +43,7 @@ The uploaded filename keeps the original extension and adds a UTC timestamp
 | `order0` | ID הזמנה | Lookup to `הזמנות` | Selected order item ID |
 | `AllocationNumber` | מספר הקצאה | Single line of text | Allocation number entered in the form |
 | `DocumentType` | סוג מסמך | Choice | Selected document type |
+| `LinkedInvoiceNumber` | — | Single line of text | Selected original invoice number for credit invoices |
 | `_Comments` | הערות לספק | Multiple lines of text | Supplier notes entered in the form |
 
 Each additional document receives the same metadata as the invoice plus
