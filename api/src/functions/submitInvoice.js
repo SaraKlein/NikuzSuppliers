@@ -573,7 +573,8 @@ function getInvoiceMetadata(invoiceValues, supplierId, orderId) {
     LinkedInvoiceNumber: invoiceValues.creditInvoiceNumber,
     _Comments: invoiceValues.supplierNotes,
     InvoiceDate: invoiceValues.invoiceDate,
-    CreatedFromSupplierApp: true
+    CreatedFromSupplierApp: true,
+    IsTaxInvoice: invoiceValues.documentType !== "חשבונית עסקה" ? true : false
   };
 }
 
