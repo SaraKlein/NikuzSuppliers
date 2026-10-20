@@ -570,7 +570,7 @@ function getInvoiceMetadata(invoiceValues, supplierId, orderId) {
     order0LookupId: Number(orderId),
     AllocationNumber: invoiceValues.allocationNumber,
     DocumentType: invoiceValues.documentType,
-    LinkedInvoiceNumber: invoiceValues.creditInvoiceNumber,
+    LinkedInvoiceNumberLookupId: invoiceValues.creditInvoiceNumber,
     _Comments: invoiceValues.supplierNotes,
     InvoiceDate: invoiceValues.date,
     CreatedFromSupplierApp: true
