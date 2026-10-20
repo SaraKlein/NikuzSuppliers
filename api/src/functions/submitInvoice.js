@@ -148,7 +148,7 @@ async function financeTaskExists(siteId, invoiceValues, accessToken) {
       const fields = item.fields || {};
       return String(fields.invoiceNumber || '').trim() === invoiceValues.invoiceNumber
         && String(fields.supplier || '').trim().toLowerCase()
-          === invoiceValues.supplierName.toLowerCase();
+        === invoiceValues.supplierName.toLowerCase();
     });
     if (found) {
       return true;
@@ -571,7 +571,9 @@ function getInvoiceMetadata(invoiceValues, supplierId, orderId) {
     AllocationNumber: invoiceValues.allocationNumber,
     DocumentType: invoiceValues.documentType,
     LinkedInvoiceNumber: invoiceValues.creditInvoiceNumber,
-    _Comments: invoiceValues.supplierNotes
+    _Comments: invoiceValues.supplierNotes,
+    InvoiceDate: invoiceValues.date,
+    CreatedFromSupplierApp: true
   };
 }
 
