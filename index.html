@@ -182,6 +182,19 @@
             color: #fff;
         }
 
+        .portal-brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .portal-logo {
+            display: block;
+            width: 82px;
+            height: 48px;
+            object-fit: contain;
+        }
+
         .portal-title {
             margin: 0;
             font-size: 20px;
@@ -489,10 +502,13 @@
 
     <main class="portal" id="invoice-page" hidden>
         <header class="portal-header">
-            <h1 class="portal-title">פורטל ספקים - הגשת חשבונית</h1>
+            <div class="portal-brand">
+                <img class="portal-logo" src="assets/nikuz-logo.png" alt="לוגו רשות ניקוז ונחלים ירדן דרומי">
+                <h1 class="portal-title">פורטל ספקים - הגשת חשבונית</h1>
+            </div>
             <nav class="portal-nav" aria-label="ניווט ראשי">
                 <span class="active" aria-current="page">הגשת חשבונית</span>
-                <span>החשבוניות שלי</span>
+               <!--<span>החשבוניות שלי</span>-->
                 <button type="button" id="logout-button">יציאה</button>
             </nav>
         </header>
@@ -625,7 +641,7 @@
 
             const submitButton = form.querySelector('button[type="submit"]');
             submitButton.disabled = true;
-            submitButton.textContent = 'בודק...';
+            submitButton.textContent = 'מוודא התאמה...';
 
             try {
                 const response = await fetch('/api/validateSupplier', {
