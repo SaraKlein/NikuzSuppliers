@@ -117,6 +117,22 @@
             box-shadow: 0 0 0 2px rgba(198, 40, 40, 0.12);
         }
 
+        .field-error {
+            grid-column: 2;
+            color: #c62828;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .supplier-summary .field-error {
+            grid-column: 1;
+        }
+
+        .purchase-picker .field-error,
+        .file-row .field-error {
+            grid-column: 2;
+        }
+
         .submit-button {
             min-height: 52px;
             margin-top: 5px;
@@ -459,9 +475,17 @@
                 gap: 6px;
             }
 
+            .invoice-field .field-error {
+                grid-column: 1;
+            }
+
             .file-row {
                 grid-template-columns: 1fr;
                 gap: 6px;
+            }
+
+            .file-row .field-error {
+                grid-column: 1;
             }
         }
     </style>
@@ -656,7 +680,7 @@
             document.getElementById('purchase-order-remaining').textContent = order
                 ? formatOrderAmount(order.remainingAmount)
                 : '—';
-            updateInvoiceAmountLimit(true);
+            updateInvoiceAmountLimit();
         }
 
         form.addEventListener('submit', async (event) => {
@@ -797,9 +821,67 @@
             return messages.join('\n');
         }
 
-        let activeInvoiceAmountError = '';
+        function setFieldValidationError(field, message) {
+            const errorId = `${field.id}-error`;
+            let error = document.getElementById(errorId);
 
-        function updateInvoiceAmountLimit(showMessage) {
+            if (!message) {
+                field.classList.remove('field-invalid');
+                field.removeAttribute('aria-invalid');
+                field.removeAttribute('aria-describedby');
+                error?.remove();
+                return;
+            }
+
+            field.classList.add('field-invalid');
+            field.setAttribute('aria-invalid', 'true');
+            field.setAttribute('aria-describedby', errorId);
+            if (!error) {
+                error = document.createElement('span');
+                error.id = errorId;
+                error.className = 'field-error';
+                field.insertAdjacentElement('afterend', error);
+            }
+            error.textContent = message;
+        }
+
+        function getValidationMessage(field) {
+            if (field.validity.valueMissing) {
+                return 'יש למלא שדה זה.';
+            }
+            if (field.validity.typeMismatch) {
+                return 'יש להזין ערך בפורמט תקין.';
+            }
+            if (field.validity.rangeUnderflow || field.validity.rangeOverflow) {
+                return 'הערך מחוץ לטווח המותר.';
+            }
+            if (field.validity.stepMismatch || field.validity.badInput) {
+                return 'יש להזין מספר תקין.';
+            }
+            return field.validationMessage || 'יש לבדוק את הערך שהוזן.';
+        }
+
+        function validateFieldOnEdit(field) {
+            if (field === invoiceTotalInput) {
+                updateInvoiceAmountLimit();
+            }
+
+            const hasValue = field.type === 'file'
+                ? field.files.length > 0
+                : typeof field.value === 'string' && field.value.trim() !== '';
+            if (!field.classList.contains('field-invalid') && hasValue) {
+                return;
+            }
+
+            const message = !hasValue && field.required
+                ? 'יש למלא שדה זה.'
+                : field.validity.valid
+                    ? ''
+                    : getValidationMessage(field);
+            setFieldValidationError(field, message);
+        }
+
+        function updateInvoiceAmountLimit() {
             const order = purchaseOrders.get(purchaseOrderSelect.value);
             const amount = Number(invoiceTotalInput.value);
             const message = order
@@ -810,109 +892,58 @@
                 : '';
 
             invoiceTotalInput.setCustomValidity(message);
-            if (message) {
-                invoiceTotalInput.classList.add('field-invalid');
-                invoiceTotalInput.setAttribute('aria-invalid', 'true');
-                if (showMessage) {
-                    invoiceStatus.classList.remove('is-success');
-                    invoiceStatus.textContent = message;
-                }
-            } else {
-                invoiceTotalInput.classList.remove('field-invalid');
-                invoiceTotalInput.removeAttribute('aria-invalid');
-                if (activeInvoiceAmountError && invoiceStatus.textContent.includes(activeInvoiceAmountError)) {
-                    invoiceStatus.textContent = invoiceStatus.textContent
-                        .replace(activeInvoiceAmountError, '')
-                        .split('\n')
-                        .filter(Boolean)
-                        .join('\n');
-                }
-            }
-            activeInvoiceAmountError = message;
+            setFieldValidationError(invoiceTotalInput, message);
             return message;
         }
 
         function validateInvoiceForm() {
             const requiredFields = [...invoiceForm.querySelectorAll('[required]')];
-            const missingFields = [];
-            const invalidFields = [];
-            const amountLimitError = updateInvoiceAmountLimit(true);
+            updateInvoiceAmountLimit();
             let firstInvalidField = null;
-
-            invoiceForm.querySelectorAll('.field-invalid').forEach((field) => {
-                field.classList.remove('field-invalid');
-                field.removeAttribute('aria-invalid');
-            });
 
             for (const field of requiredFields) {
                 const hasValue = field.type === 'file'
                     ? field.files.length > 0
                     : typeof field.value === 'string' && field.value.trim() !== '';
-                const label = invoiceForm.querySelector(`label[for="${field.id}"]`);
-                const fieldName = label ? label.textContent.trim() : field.name;
+                const message = !hasValue
+                    ? 'יש למלא שדה זה.'
+                    : field.validity.valid
+                        ? ''
+                        : getValidationMessage(field);
+                setFieldValidationError(field, message);
 
-                if (!hasValue) {
-                    missingFields.push(fieldName);
-                    field.classList.add('field-invalid');
-                    field.setAttribute('aria-invalid', 'true');
-                    firstInvalidField = firstInvalidField || field;
-                } else if (!field.validity.valid) {
-                    invalidFields.push(fieldName);
-                    field.classList.add('field-invalid');
-                    field.setAttribute('aria-invalid', 'true');
+                if (message) {
                     firstInvalidField = firstInvalidField || field;
                 }
             }
 
             const projectFolderUrl = document.getElementById('purchase-project-folder-value').value.trim();
             if (!purchaseOrders.has(purchaseOrderSelect.value) || !projectFolderUrl) {
-                missingFields.push('הזמנת רכש');
-                purchaseOrderSelect.classList.add('field-invalid');
-                purchaseOrderSelect.setAttribute('aria-invalid', 'true');
+                setFieldValidationError(purchaseOrderSelect, 'יש לבחור הזמנת רכש.');
                 firstInvalidField = firstInvalidField || purchaseOrderSelect;
+            } else {
+                setFieldValidationError(purchaseOrderSelect, '');
+            }
+
+            if (firstInvalidField) {
+                firstInvalidField?.focus();
+                return false;
             }
 
             if (!document.getElementById('verified-supplier-id').value.trim()) {
-                missingFields.push('פרטי ספק מאומתים');
-            }
-
-            if (missingFields.length || invalidFields.length) {
-                const messages = [];
-                if (missingFields.length) {
-                    messages.push(`נא למלא את השדות הבאים: ${[...new Set(missingFields)].join(', ')}.`);
-                }
-                if (invalidFields.length) {
-                    messages.push(`נא לבדוק את הערכים בשדות: ${[...new Set(invalidFields)].join(', ')}.`);
-                }
-                if (amountLimitError) {
-                    messages.push(amountLimitError);
-                }
-                invoiceStatus.textContent = messages.join('\n');
-                firstInvalidField?.focus();
+                invoiceStatus.textContent = 'פרטי הספק המאומתים חסרים. נא לצאת ולהתחבר מחדש.';
                 return false;
             }
 
             return true;
         }
 
-        invoiceTotalInput.addEventListener('input', () => updateInvoiceAmountLimit(true));
-
         invoiceForm.addEventListener('input', (event) => {
-            if (event.target.classList.contains('field-invalid') && event.target.validity.valid) {
-                event.target.classList.remove('field-invalid');
-                event.target.removeAttribute('aria-invalid');
-            }
+            validateFieldOnEdit(event.target);
         });
 
         invoiceForm.addEventListener('change', (event) => {
-            if (
-                event.target.classList.contains('field-invalid')
-                && event.target.validity.valid
-                && (event.target !== purchaseOrderSelect || purchaseOrders.has(purchaseOrderSelect.value))
-            ) {
-                event.target.classList.remove('field-invalid');
-                event.target.removeAttribute('aria-invalid');
-            }
+            validateFieldOnEdit(event.target);
         });
 
         invoiceForm.addEventListener('submit', async (event) => {
