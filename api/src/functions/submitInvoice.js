@@ -23,10 +23,12 @@ const invoiceColumns = [
 ];
 
 class GraphRequestError extends Error {
-  constructor(operation, status) {
+  constructor(operation, status, graphCode, graphMessage) {
     super(`Microsoft Graph ${operation} request failed (${status})`);
     this.operation = operation;
     this.status = status;
+    this.graphCode = graphCode;
+    this.graphMessage = graphMessage;
   }
 }
 
@@ -80,6 +82,25 @@ async function getAccessToken(credentials, scope) {
   return tokenResponse.access_token;
 }
 
+async function getGraphErrorDetails(response) {
+  let body;
+  try {
+    body = await response.json();
+  } catch {
+    return {};
+  }
+
+  const graphError = body && body.error;
+  return {
+    graphCode: typeof (graphError && graphError.code) === 'string'
+      ? graphError.code.slice(0, 100)
+      : undefined,
+    graphMessage: typeof (graphError && graphError.message) === 'string'
+      ? graphError.message.replace(/[\r\n\t]+/g, ' ').slice(0, 400)
+      : undefined
+  };
+}
+
 async function graphRequest(url, accessToken, options, operation, timeoutMs = 20000) {
   const response = await fetch(url, {
     ...options,
@@ -91,7 +112,8 @@ async function graphRequest(url, accessToken, options, operation, timeoutMs = 20
   });
 
   if (!response.ok) {
-    throw new GraphRequestError(operation, response.status);
+    const details = await getGraphErrorDetails(response);
+    throw new GraphRequestError(operation, response.status, details.graphCode, details.graphMessage);
   }
 
   if (response.status === 204) {
@@ -111,7 +133,8 @@ async function graphRequestIfExists(url, accessToken, operation) {
     return null;
   }
   if (!response.ok) {
-    throw new GraphRequestError(operation, response.status);
+    const details = await getGraphErrorDetails(response);
+    throw new GraphRequestError(operation, response.status, details.graphCode, details.graphMessage);
   }
 
   return response.json();
@@ -865,7 +888,11 @@ app.http('submitInvoice', {
         ? error.message.match(/\((\d{3})\)/)
         : null;
       const diagnostic = error instanceof GraphRequestError
-        ? `HTTP ${error.status}`
+        ? [
+          `HTTP ${error.status}`,
+          error.graphCode,
+          error.graphMessage
+        ].filter(Boolean).join(' — ')
         : statusMatch
           ? `HTTP ${statusMatch[1]}`
           : error && error.name === 'TypeError'
