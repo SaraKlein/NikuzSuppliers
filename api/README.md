@@ -34,6 +34,8 @@ uploaded document's library item. Any additional documents are uploaded to the
 
 The uploaded filename keeps the original extension and adds a UTC timestamp
 (`_yyyyMMdd_HHmmssfff`) before it, for example `invoice_20261019_122135642.pdf`.
+Invoice files are uploaded to the `חשבוניות` subfolder within the selected
+project folder. The subfolder must already exist.
 
 | Internal name | Display name | SharePoint type | Value |
 | --- | --- | --- | --- |

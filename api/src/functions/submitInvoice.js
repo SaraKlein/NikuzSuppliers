@@ -639,8 +639,21 @@ async function uploadInvoiceFile(
     'איתור ספריית המסמכים ותיקיית הפרויקט',
     () => getProjectDriveAndFolder(projectFolderUrl, siteId, accessToken)
   );
+  const invoiceFolderPath = [projectFolderPath, 'חשבוניות'].filter(Boolean).join('/');
+  const invoiceFolder = await runStep(
+    'איתור תיקיית החשבוניות בפרויקט',
+    () => getDriveItemByPath(
+      drive.id,
+      invoiceFolderPath,
+      accessToken,
+      'invoice folder lookup'
+    )
+  );
+  if (!invoiceFolder) {
+    throw new Error('The חשבוניות subfolder was not found in the project folder.');
+  }
   const safeFileName = safeFileNameFromUpload(file.name, 1, new Set());
-  const uploadPath = [projectFolderPath, safeFileName].filter(Boolean).join('/');
+  const uploadPath = [invoiceFolderPath, safeFileName].filter(Boolean).join('/');
   const fileData = await runStep(
     `העלאת הקובץ ${safeFileName} באמצעות Microsoft Graph`,
     async () => {
@@ -685,7 +698,7 @@ async function uploadInvoiceFile(
     listItemId: invoiceListItemId,
     fileName: safeFileName,
     fileUrl: fileData.webUrl || null,
-    folderServerRelativeUrl: resolveProjectFolderPath(projectFolderUrl)
+    folderServerRelativeUrl: `${resolveProjectFolderPath(projectFolderUrl)}/חשבוניות`
   };
 }
 

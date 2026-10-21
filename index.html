@@ -658,6 +658,7 @@
         const purchaseOrderSelect = document.getElementById('purchase-order');
         const purchaseOrderNotice = document.getElementById('purchase-order-notice');
         const purchaseOrders = new Map();
+        let invoiceSubmissionStarted = false;
         const creditInvoiceField = document.getElementById('credit-invoice-field');
         const creditInvoiceSelect = document.getElementById('credit-invoice-number');
         const documentTypeSelect = invoiceForm.elements.documentType;
@@ -986,6 +987,10 @@
 
         invoiceForm.addEventListener('submit', async (event) => {
             event.preventDefault();
+            if (invoiceSubmissionStarted) {
+                return;
+            }
+
             invoiceStatus.textContent = '';
             invoiceStatus.classList.remove('is-success');
 
@@ -995,13 +1000,17 @@
 
             const projectFolderUrl = document.getElementById('purchase-project-folder-value').value.trim();
             const submitButton = invoiceForm.querySelector('button[type="submit"]');
-            submitButton.disabled = true;
+            const submissionData = new FormData(invoiceForm);
+            invoiceSubmissionStarted = true;
+            invoiceForm.querySelectorAll('input, select, textarea, button').forEach((control) => {
+                control.disabled = true;
+            });
             submitButton.textContent = 'בודק ומעלה...';
             invoiceStatus.textContent = 'הבקשה נשלחה. ממתין לתוצאות בדיקת SharePoint והעלאה...';
 
             try {
                 const invoiceFile = invoiceForm.elements.invoiceFile.files[0];
-                const projectFolderPath = decodeURIComponent(new URL(projectFolderUrl).pathname).replace(/\/+$/, '');
+                const projectFolderPath = `${decodeURIComponent(new URL(projectFolderUrl).pathname).replace(/\/+$/, '')}/חשבוניות`;
                 console.log('Invoice upload target:', {
                     folderPath: projectFolderPath,
                     fileName: invoiceFile ? invoiceFile.name : ''
@@ -1009,7 +1018,7 @@
 
                 const response = await fetch('/api/submitInvoice', {
                     method: 'POST',
-                    body: new FormData(invoiceForm)
+                    body: submissionData
                 });
                 const responseBody = await response.text();
                 let result = null;
@@ -1046,8 +1055,7 @@
                 invoiceStatus.textContent =
                     'בקשת ההעלאה נכשלה לפני שהתקבלה תשובת שרת. בדקו את חיבור הרשת ואת יומן השרת.';
             } finally {
-                submitButton.disabled = false;
-                submitButton.textContent = 'בדיקת התאמה';
+                submitButton.textContent = 'השליחה הסתיימה';
             }
         });
 
