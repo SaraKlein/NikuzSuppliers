@@ -175,7 +175,7 @@ app.http('validateSupplier', {
         supplierEmail: normalize(supplierEmail)
       }, accessToken);
       const valid = result.supplierId !== null;
-     /* await writeApplicationLog({
+      await writeApplicationLog({
         siteId: result.siteId,
         accessToken,
         severity: valid ? 'Information' : 'Warning',
@@ -189,10 +189,10 @@ app.http('validateSupplier', {
           valid,
           supplierId: result.supplierId
         },
-        correlationId: context.invocationId,
+        correlationId: '',
         httpStatus: 200
       });
-*/
+
       return jsonResponse(200, {
         valid,
         supplierId: result.supplierId

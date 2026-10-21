@@ -98,7 +98,7 @@ async function writeApplicationLog({
       CorrelationId: String(correlationId || randomUUID()).slice(0, 255)
     };
     if (Number.isInteger(httpStatus)) {
-      fields.HTTPStatus = httpStatus;
+      fields.HttpStatus = httpStatus;
     }
 
     operation = 'create log item';
