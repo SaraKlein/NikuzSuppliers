@@ -290,7 +290,7 @@ function roundCurrency(amount) {
   return Math.round((amount + Number.EPSILON) * 100) / 100;
 }
 
-async function getVerifiedPurchaseOrder(siteId, orderId, supplierName, accessToken) {
+async function getVerifiedPurchaseOrder(siteId, orderId, supplierName, projectId, accessToken) {
   const listsUrl = new URL(`${graphBaseUrl}/sites/${siteId}/lists`);
   listsUrl.searchParams.set('$filter', "displayName eq 'הזמנות'");
   listsUrl.searchParams.set('$select', 'id,displayName');
@@ -300,21 +300,45 @@ async function getVerifiedPurchaseOrder(siteId, orderId, supplierName, accessTok
     throw new Error('SharePoint purchase order list was not found.');
   }
 
+  const columnsUrl = new URL(
+    `${graphBaseUrl}/sites/${siteId}/lists/${encodeURIComponent(list.id)}/columns`
+  );
+  columnsUrl.searchParams.set('$select', 'name,displayName,lookup');
+  const columns = await graphRequest(
+    columnsUrl,
+    accessToken,
+    null,
+    'purchase order columns lookup'
+  );
+  const projectColumn = columns.value.find((column) => (
+    (column.name === 'Project' || column.displayName === 'Project')
+    && column.lookup
+    && column.lookup.listId
+  ));
+  if (!projectColumn) {
+    throw new Error('The purchase order list does not have a Project lookup column.');
+  }
+
   const itemUrl = new URL(
     `${graphBaseUrl}/sites/${siteId}/lists/${encodeURIComponent(list.id)}/items/${encodeURIComponent(orderId)}`
   );
-  itemUrl.searchParams.set('$expand', 'fields($select=SupplierText,money,sumOfInvoice)');
+  itemUrl.searchParams.set(
+    '$expand',
+    `fields($select=SupplierText,money,sumOfInvoice,${projectColumn.name}LookupId)`
+  );
   const order = await graphRequest(itemUrl, accessToken, null, 'purchase order verification');
   const fields = order.fields || {};
   const orderSupplier = String(fields.SupplierText || '').trim().toLowerCase();
   if (orderSupplier !== supplierName.trim().toLowerCase()) {
-    return { belongsToSupplier: false };
+    return { belongsToSupplier: false, belongsToProject: false };
   }
 
+  const orderProjectId = String(fields[`${projectColumn.name}LookupId`] || '').split(',')[0].trim();
   const money = getOrderAmount(fields.money, 'money');
   const sumOfInvoice = getOrderAmount(fields.sumOfInvoice, 'sumOfInvoice', 0);
   return {
     belongsToSupplier: true,
+    belongsToProject: orderProjectId === projectId,
     remainingAmount: roundCurrency(money - sumOfInvoice)
   };
 }
@@ -673,6 +697,7 @@ async function uploadSupportingDocuments(
   invoiceValues,
   supplierId,
   orderId,
+  projectId,
   invoiceListItemId
 ) {
   if (!files.length) {
@@ -708,6 +733,7 @@ async function uploadSupportingDocuments(
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ...getInvoiceMetadata(invoiceValues, supplierId, orderId),
+            ProjectLookupId: Number(projectId),
             InvoiceLookupLookupId: invoiceListItemId
           })
         },
@@ -776,14 +802,17 @@ app.http('submitInvoice', {
 
       const projectFolderUrl = getTextField(formData, 'projectFolderUrl');
       const supplierId = getTextField(formData, 'supplierId');
+      const projectId = getTextField(formData, 'projectId');
       const orderId = invoiceValues.purchaseOrder;
       if (!projectFolderUrl) {
         return failureResponse(400, 'יש לבחור הזמנת רכש תקינה לפני העלאת החשבונית.');
       }
       if (
         !/^[1-9]\d*$/.test(supplierId)
+        || !/^[1-9]\d*$/.test(projectId)
         || !/^[1-9]\d*$/.test(orderId)
         || !Number.isSafeInteger(Number(supplierId))
+        || !Number.isSafeInteger(Number(projectId))
         || !Number.isSafeInteger(Number(orderId))
       ) {
         return failureResponse(400, 'פרטי הספק או הזמנת הרכש אינם תקינים.');
@@ -822,12 +851,22 @@ app.http('submitInvoice', {
         return failureResponse(400, 'מספר החשבונית המקורית שנבחרה אינו מופיע בחשבוניות של הספק.');
       }
       const verifiedPurchaseOrder = await runStep(
-        'אימות הזמנת הרכש ויתרת הסכום מול הספק',
-        () => getVerifiedPurchaseOrder(site.id, orderId, invoiceValues.supplierName, graphToken)
+        'אימות הזמנת הרכש, הפרויקט ויתרת הסכום מול הספק',
+        () => getVerifiedPurchaseOrder(
+          site.id,
+          orderId,
+          invoiceValues.supplierName,
+          projectId,
+          graphToken
+        )
       );
       if (!verifiedPurchaseOrder.belongsToSupplier) {
         currentStep = 'אימות הזמנת הרכש שנבחרה';
         return failureResponse(403, 'הזמנת הרכש אינה משויכת לספק המאומת.');
+      }
+      if (!verifiedPurchaseOrder.belongsToProject) {
+        currentStep = 'אימות הפרויקט המשויך להזמנת הרכש';
+        return failureResponse(403, 'הפרויקט שנבחר אינו משויך להזמנת הרכש.');
       }
       if (invoiceValues.totalAmount > verifiedPurchaseOrder.remainingAmount) {
         currentStep = 'בדיקת סכום החשבונית מול יתרת הזמנת הרכש';
@@ -869,6 +908,7 @@ app.http('submitInvoice', {
         invoiceValues,
         verifiedSupplierId,
         orderId,
+        projectId,
         uploadResult.listItemId
       );
 

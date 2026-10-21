@@ -49,8 +49,10 @@ The uploaded filename keeps the original extension and adds a UTC timestamp
 
 Each additional document receives the same metadata as the invoice plus
 `InvoiceLookupLookupId` (the Graph lookup-ID property for `InvoiceLookup`),
-which points to the uploaded invoice's SharePoint list-item ID. Additional
-files are optional and limited to 50 MB each.
+and `ProjectLookupId` (the Graph lookup-ID property for `Project`). These point
+to the uploaded invoice's list-item ID and the selected order's verified
+project ID, respectively. Additional files are optional and limited to 50 MB
+each.
 
 The supplier enters the total amount including VAT; this value is written
 directly to `invoiceSum`.
