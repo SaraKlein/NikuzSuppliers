@@ -61,14 +61,14 @@ async function writeApplicationLog({
 
   const listId = await getLogListId(siteId, accessToken);
   const fields = {
-    LogID: randomUUID(),
+    Title: randomUUID(),
     Application: applicationName,
     Environment: getEnvironment(),
     Severity: severity,
-    Occurredat: new Date().toISOString(),
+    OccurredAt: new Date().toISOString(),
     Message: String(message).slice(0, 2000),
     Details: details === undefined ? '' : JSON.stringify(details).slice(0, 12000),
-    CorrelationID: String(correlationId || randomUUID()).slice(0, 255)
+    CorrelationId: String(correlationId || randomUUID()).slice(0, 255)
   };
   if (Number.isInteger(httpStatus)) {
     fields.HTTPStatus = httpStatus;
