@@ -81,6 +81,15 @@ uploaded through Microsoft Graph, so no SharePoint API permission is required.
 Store the secret only in Azure application settings; do not add it to the
 repository or send it to the browser.
 
+Supplier login attempts and invoice submission outcomes are written to the
+`External Application Logs` list on the Projects site. The log uses the
+internal fields `LogID`, `Application`, `Environment`, `Severity`, `Occurredat`,
+`Message`, `Details`, `CorrelationID`, and `HTTPStatus`. Configure the optional
+`APP_ENVIRONMENT` application setting to `Development`, `Test`, `Staging`, or
+`Production`; it defaults to `Production`. The app registration therefore
+also needs write access to this list. Login mismatch details include the
+submitted supplier number, name, and email.
+
 The supplier validation endpoint only checks whether the supplied details
 match a list item; it does not authenticate the person or establish a logged-in
 session. Invoice submission repeats that check server-side, but anyone who

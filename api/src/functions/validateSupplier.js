@@ -1,4 +1,5 @@
 const { app } = require('@azure/functions');
+const { writeApplicationLog } = require('../shared/applicationLogger');
 
 const graphBaseUrl = 'https://graph.microsoft.com/v1.0';
 const sitePath = '/sites/Projects';
@@ -110,7 +111,7 @@ async function supplierExists(values, accessToken) {
       if (typeof matchingItem.id !== 'string' || !matchingItem.id) {
         throw new Error('Matching supplier item did not include an ID');
       }
-      return matchingItem.id;
+      return { siteId: site.id, supplierId: matchingItem.id };
     }
 
     if (page['@odata.nextLink']) {
@@ -123,7 +124,7 @@ async function supplierExists(values, accessToken) {
     }
   }
 
-  return null;
+  return { siteId: site.id, supplierId: null };
 }
 
 app.http('validateSupplier', {
@@ -168,15 +169,33 @@ app.http('validateSupplier', {
 
     try {
       const accessToken = await getAccessToken(credentials);
-      const supplierId = await supplierExists({
+      const result = await supplierExists({
         supplierNumber: normalize(supplierNumber),
         supplierName: normalize(supplierName),
         supplierEmail: normalize(supplierEmail)
       }, accessToken);
+      const valid = result.supplierId !== null;
+      await writeApplicationLog({
+        siteId: result.siteId,
+        accessToken,
+        severity: valid ? 'Information' : 'Warning',
+        message: valid
+          ? 'Supplier login validated.'
+          : 'Supplier login validation did not match a supplier record.',
+        details: {
+          supplierNumber: supplierNumber.trim(),
+          supplierName: supplierName.trim(),
+          supplierEmail: supplierEmail.trim(),
+          valid,
+          supplierId: result.supplierId
+        },
+        correlationId: context.invocationId,
+        httpStatus: 200
+      });
 
       return jsonResponse(200, {
-        valid: supplierId !== null,
-        supplierId
+        valid,
+        supplierId: result.supplierId
       });
     } catch (error) {
       context.error('Supplier validation failed', error);

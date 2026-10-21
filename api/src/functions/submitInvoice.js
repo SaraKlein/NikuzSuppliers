@@ -1,4 +1,5 @@
 const { app } = require('@azure/functions');
+const { writeApplicationLog } = require('../shared/applicationLogger');
 
 const graphBaseUrl = 'https://graph.microsoft.com/v1.0';
 const siteHost = 'yardend.sharepoint.com';
@@ -765,12 +766,79 @@ app.http('submitInvoice', {
   handler: async (request, context) => {
     const completedSteps = [];
     let currentStep = 'בדיקת הגדרות SharePoint';
-    const failureResponse = (status, error, diagnostic) => jsonResponse(status, {
-      error,
-      completedSteps,
-      failedStep: currentStep,
-      ...(diagnostic ? { diagnostic } : {})
-    });
+    const credentials = getCredentials();
+    let auditSiteId = null;
+    let auditAccessToken = null;
+    let auditTargetPromise = null;
+    let auditDetails = {};
+    const ensureAuditTarget = async () => {
+      if (auditSiteId && auditAccessToken) {
+        return true;
+      }
+      if (!credentials) {
+        return false;
+      }
+      if (!auditTargetPromise) {
+        auditTargetPromise = (async () => {
+          auditAccessToken = await getAccessToken(
+            credentials,
+            'https://graph.microsoft.com/.default'
+          );
+          const site = await getSharePointSite(auditAccessToken);
+          auditSiteId = site.id;
+        })();
+      }
+      await auditTargetPromise;
+      return true;
+    };
+    const writeAuditLog = async (severity, message, details, httpStatus) => {
+      try {
+        if (!await ensureAuditTarget()) {
+          context.error('Application log could not be written because SharePoint credentials are unavailable.');
+          return;
+        }
+      } catch (error) {
+        context.error('Application log could not be written because SharePoint could not be reached.', error);
+        return;
+      }
+      if (!auditSiteId || !auditAccessToken) {
+        context.error('Application log could not be written because the SharePoint site or Graph token is unavailable.');
+        return;
+      }
+      try {
+        await writeApplicationLog({
+          siteId: auditSiteId,
+          accessToken: auditAccessToken,
+          severity,
+          message,
+          details,
+          correlationId: context.invocationId,
+          httpStatus
+        });
+      } catch (error) {
+        context.error('Could not write the application event to SharePoint.', error);
+      }
+    };
+    const failureResponse = async (status, error, diagnostic) => {
+      await writeAuditLog(
+        status >= 500 ? 'Error' : 'Warning',
+        `Invoice submission failed during ${currentStep}.`,
+        {
+          ...auditDetails,
+          error,
+          diagnostic,
+          failedStep: currentStep,
+          completedSteps
+        },
+        status
+      );
+      return jsonResponse(status, {
+        error,
+        completedSteps,
+        failedStep: currentStep,
+        ...(diagnostic ? { diagnostic } : {})
+      });
+    };
     const runStep = async (label, operation) => {
       currentStep = label;
       const result = await operation();
@@ -778,7 +846,6 @@ app.http('submitInvoice', {
       return result;
     };
 
-    const credentials = getCredentials();
     if (!credentials) {
       context.error('Invoice validation is not configured: SharePoint credentials are missing.');
       return failureResponse(503, 'בדיקת התאמת החשבונית אינה זמינה כרגע.');
@@ -787,6 +854,20 @@ app.http('submitInvoice', {
 
     try {
       const formData = await runStep('קריאת נתוני הטופס', () => request.formData());
+      auditDetails = {
+        supplierNumber: getTextField(formData, 'verifiedNumber'),
+        supplierName: getTextField(formData, 'verifiedName'),
+        supplierEmail: getTextField(formData, 'verifiedEmail'),
+        purchaseOrderId: getTextField(formData, 'purchaseOrder'),
+        invoiceNumber: getTextField(formData, 'invoiceNumber'),
+        invoiceDate: getTextField(formData, 'invoiceDate'),
+        invoiceTotal: getTextField(formData, 'invoiceTotal'),
+        documentType: getTextField(formData, 'documentType'),
+        invoiceFileName: formData.get('invoiceFile') && formData.get('invoiceFile').name,
+        supportingFileNames: formData.getAll('supportingFiles')
+          .filter((file) => isFile(file) && file.name)
+          .map((file) => file.name)
+      };
       currentStep = 'בדיקת שדות החשבונית והקובץ';
       const supplierNumber = formData.get('verifiedNumber');
       if (typeof supplierNumber !== 'string' || !supplierNumber.trim()) {
@@ -836,10 +917,12 @@ app.http('submitInvoice', {
         'קבלת אסימון Microsoft Graph',
         () => getAccessToken(credentials, 'https://graph.microsoft.com/.default')
       );
+      auditAccessToken = graphToken;
       const site = await runStep(
         'איתור אתר SharePoint',
         () => getSharePointSite(graphToken)
       );
+      auditSiteId = site.id;
       const verifiedSupplierId = await runStep(
         'אימות הספק מול רשימת הספקים',
         () => getVerifiedSupplierId(site.id, invoiceValues, graphToken)
@@ -897,10 +980,11 @@ app.http('submitInvoice', {
         )
       );
       if (matchingTaskExists) {
-        return jsonResponse(409, {
-          completedSteps,
-          error: `חשבונית מספר ${invoiceValues.invoiceNumber} כבר הוגשה עבור ספק ${invoiceValues.supplierName}.\nאי אפשר להעלות את החשבונית.`
-        });
+        currentStep = 'בדיקת חשבונית כפולה ברשימת המשימות';
+        return failureResponse(
+          409,
+          `חשבונית מספר ${invoiceValues.invoiceNumber} כבר הוגשה עבור ספק ${invoiceValues.supplierName}.\nאי אפשר להעלות את החשבונית.`
+        );
       }
 
       const uploadResult = await uploadInvoiceFile(
@@ -923,6 +1007,22 @@ app.http('submitInvoice', {
         orderId,
         projectId,
         uploadResult.listItemId
+      );
+
+      await writeAuditLog(
+        'Information',
+        'Invoice uploaded successfully.',
+        {
+          ...auditDetails,
+          supplierId: verifiedSupplierId,
+          projectId,
+          purchaseOrderId: orderId,
+          invoiceListItemId: uploadResult.listItemId,
+          uploadedInvoiceFileName: uploadResult.fileName,
+          uploadedInvoiceFolder: uploadResult.folderServerRelativeUrl,
+          uploadedSupportingFiles
+        },
+        200
       );
 
       return jsonResponse(200, {
