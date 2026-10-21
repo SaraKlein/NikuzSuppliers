@@ -25,7 +25,31 @@ async function graphRequest(url, accessToken, options, operation) {
   });
 
   if (!response.ok) {
-    throw new Error(`Application log ${operation} failed (HTTP ${response.status}).`);
+    let graphCode;
+    let graphMessage;
+    try {
+      const body = await response.json();
+      const graphError = body && body.error;
+      graphCode = typeof (graphError && graphError.code) === 'string'
+        ? graphError.code.slice(0, 100)
+        : undefined;
+      graphMessage = typeof (graphError && graphError.message) === 'string'
+        ? graphError.message.replace(/[\r\n\t]+/g, ' ').slice(0, 500)
+        : undefined;
+    } catch {
+      // The HTTP status is still useful when Graph does not return a JSON error.
+    }
+
+    const error = new Error(
+      `Application log ${operation} failed (HTTP ${response.status})`
+      + (graphCode ? `: ${graphCode}` : '')
+      + (graphMessage ? ` — ${graphMessage}` : '')
+    );
+    error.status = response.status;
+    error.graphCode = graphCode;
+    error.graphMessage = graphMessage;
+    error.operation = operation;
+    throw error;
   }
 
   if (response.status === 204) {
@@ -55,35 +79,49 @@ async function writeApplicationLog({
   correlationId,
   httpStatus
 }) {
-  if (!severities.has(severity)) {
-    throw new Error(`Unsupported application log severity: ${severity}`);
-  }
+  let operation = 'validate log fields';
+  try {
+    if (!severities.has(severity)) {
+      throw new Error(`Unsupported application log severity: ${severity}`);
+    }
 
-  const listId = await getLogListId(siteId, accessToken);
-  const fields = {
-    Title: randomUUID(),
-    Application: applicationName,
-    Environment: getEnvironment(),
-    Severity: severity,
-    OccurredAt: new Date().toISOString(),
-    Message: String(message).slice(0, 2000),
-    Details: details === undefined ? '' : JSON.stringify(details).slice(0, 12000),
-    CorrelationId: String(correlationId || randomUUID()).slice(0, 255)
-  };
-  if (Number.isInteger(httpStatus)) {
-    fields.HTTPStatus = httpStatus;
-  }
+    operation = 'find log list';
+    const listId = await getLogListId(siteId, accessToken);
+    const fields = {
+      Title: randomUUID(),
+      Application: applicationName,
+      Environment: 'Production',//getEnvironment(),
+      Severity: severity,
+      OccurredAt: new Date().toISOString(),
+      Message: String(message).slice(0, 2000),
+      Details: details === undefined ? '' : JSON.stringify(details).slice(0, 12000),
+      CorrelationId: String(correlationId || randomUUID()).slice(0, 255)
+    };
+    if (Number.isInteger(httpStatus)) {
+      fields.HTTPStatus = httpStatus;
+    }
 
-  await graphRequest(
-    `${graphBaseUrl}/sites/${encodeURIComponent(siteId)}/lists/${encodeURIComponent(listId)}/items`,
-    accessToken,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fields })
-    },
-    'write'
-  );
+    operation = 'create log item';
+    await graphRequest(
+      `${graphBaseUrl}/sites/${encodeURIComponent(siteId)}/lists/${encodeURIComponent(listId)}/items`,
+      accessToken,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fields })
+      },
+      'write'
+    );
+  } catch (error) {
+    console.error('[ApplicationLogger] Failed to write SharePoint log.', {
+      operation: error.operation || operation,
+      message: error.message,
+      httpStatus: error.status,
+      graphCode: error.graphCode,
+      graphMessage: error.graphMessage
+    });
+    throw error;
+  }
 }
 
 module.exports = { writeApplicationLog };
