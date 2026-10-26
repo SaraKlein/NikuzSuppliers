@@ -531,7 +531,10 @@
             </nav>
         </header>
 
-        <div class="notice" id="purchase-order-notice" role="status" aria-live="polite">פרטי הספק אומתו.</div>
+        <div class="notice" id="purchase-order-notice" role="status" aria-live="polite">
+            <span id="purchase-order-notice-text">פרטי הספק אומתו.</span>
+            <button type="button" id="purchase-orders-retry" hidden>טעינה מחדש</button>
+        </div>
 
         <form id="invoice-form" novalidate>
             <section class="form-panel" aria-labelledby="supplier-panel-title">
@@ -650,9 +653,14 @@
         const invoiceForm = document.getElementById('invoice-form');
         const invoiceStatus = document.getElementById('invoice-status');
         const purchaseOrderSelect = document.getElementById('purchase-order');
-        const purchaseOrderNotice = document.getElementById('purchase-order-notice');
+        const purchaseOrderNoticeText = document.getElementById('purchase-order-notice-text');
+        const purchaseOrdersRetryButton = document.getElementById('purchase-orders-retry');
         const purchaseOrders = new Map();
         let invoiceSubmissionStarted = false;
+        let ordersLoading = false;
+        let ordersLoadFailed = false;
+        let ordersRequestId = 0;
+        let activeSupplier = null;
         const creditInvoiceField = document.getElementById('credit-invoice-field');
         const creditInvoiceSelect = document.getElementById('credit-invoice-number');
         const documentTypeSelect = invoiceForm.elements.documentType;
@@ -706,6 +714,84 @@
                 creditInvoiceSelect.add(new Option(invoiceNumber, invoiceNumber));
             }
         }
+
+        async function loadSupplierOrders(supplier) {
+            const requestId = ++ordersRequestId;
+            ordersLoading = true;
+            ordersLoadFailed = false;
+            purchaseOrderSelect.disabled = true;
+            purchaseOrdersRetryButton.hidden = true;
+            purchaseOrderNoticeText.textContent = 'פרטי הספק אומתו. טוען הזמנות רכש וחשבוניות קודמות...';
+            invoiceStatus.textContent = '';
+
+            try {
+                const response = await fetch('/api/getPurchaseOrders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(supplier)
+                });
+                if (!response.ok) {
+                    throw new Error(`Purchase order request failed (${response.status})`);
+                }
+
+                const result = await response.json();
+                if (
+                    !result
+                    || !Array.isArray(result.orders)
+                    || !Array.isArray(result.invoiceNumbers)
+                    || !result.invoiceNumbers.every((number) => typeof number === 'string')
+                    || !result.orders.every((order) => (
+                        order
+                        && typeof order.id === 'string'
+                        && typeof order.title === 'string'
+                        && typeof order.projectId === 'string'
+                        && typeof order.projectTitle === 'string'
+                        && typeof order.projectFolderUrl === 'string'
+                        && Number.isFinite(order.money)
+                        && Number.isFinite(order.sumOfInvoice)
+                        && Number.isFinite(order.remainingAmount)
+                    ))
+                ) {
+                    throw new Error('Purchase order response had an invalid shape.');
+                }
+
+                if (requestId !== ordersRequestId) {
+                    return;
+                }
+
+                purchaseOrders.clear();
+                purchaseOrderSelect.replaceChildren(new Option('בחירת הזמנת רכש', ''));
+                for (const order of result.orders) {
+                    purchaseOrders.set(order.id, order);
+                    purchaseOrderSelect.add(new Option(order.title, order.id));
+                }
+                populateCreditInvoiceNumbers(result.invoiceNumbers);
+                purchaseOrderSelect.disabled = false;
+                purchaseOrderNoticeText.textContent = result.orders.length
+                    ? `פרטי הספק אומתו. נמצאו ${result.orders.length} הזמנות רכש ו-${supplierInvoiceNumbers.length} חשבוניות קודמות.`
+                    : `פרטי הספק אומתו, אך לא נמצאו הזמנות רכש המשויכות אליו. נמצאו ${supplierInvoiceNumbers.length} חשבוניות קודמות.`;
+                renderPurchaseOrderDetails();
+            } catch (error) {
+                if (requestId !== ordersRequestId) {
+                    return;
+                }
+                console.error('Could not load purchase orders and invoice history.', error);
+                ordersLoadFailed = true;
+                purchaseOrderNoticeText.textContent =
+                    'לא ניתן לטעון כרגע את הזמנות הרכש והחשבוניות הקודמות של הספק.';
+                purchaseOrdersRetryButton.hidden = false;
+            } finally {
+                if (requestId === ordersRequestId) {
+                    ordersLoading = false;
+                }
+            }
+        }
+
+        purchaseOrdersRetryButton.addEventListener('click', () => {
+            if (activeSupplier && !ordersLoading) {
+                loadSupplierOrders(activeSupplier);
+            }
+        });
 
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
@@ -762,58 +848,11 @@
                         supplierName: result.supplierName.trim(),
                         supplierEmail: form.elements.supplierEmail.value.trim()
                     };
-                    const orderListUnavailableMessage =
-                        'לא ניתן לטעון כרגע את הזמנות הרכש והחשבוניות הקודמות של הספק.';
-                    let noticeMessage = orderListUnavailableMessage;
+                    activeSupplier = supplier;
                     purchaseOrders.clear();
                     purchaseOrderSelect.replaceChildren(new Option('בחירת הזמנת רכש', ''));
+                    purchaseOrderSelect.disabled = true;
                     populateCreditInvoiceNumbers([]);
-
-                    try {
-                        const ordersResponse = await fetch('/api/getPurchaseOrders', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(supplier)
-                        });
-                        if (!ordersResponse.ok) {
-                            throw new Error(`Purchase order request failed (${ordersResponse.status})`);
-                        }
-
-                        const ordersResult = await ordersResponse.json();
-                        if (
-                            ordersResult
-                            && Array.isArray(ordersResult.orders)
-                            && Array.isArray(ordersResult.invoiceNumbers)
-                            && ordersResult.invoiceNumbers.every((number) => typeof number === 'string')
-                            && ordersResult.orders.every((order) => (
-                                order
-                                && typeof order.id === 'string'
-                                && typeof order.title === 'string'
-                                && typeof order.projectId === 'string'
-                                && typeof order.projectTitle === 'string'
-                                && typeof order.projectFolderUrl === 'string'
-                                && Number.isFinite(order.money)
-                                && Number.isFinite(order.sumOfInvoice)
-                                && Number.isFinite(order.remainingAmount)
-                            ))
-                        ) {
-                            populateCreditInvoiceNumbers(ordersResult.invoiceNumbers);
-                            for (const order of ordersResult.orders) {
-                                purchaseOrders.set(order.id, order);
-                                purchaseOrderSelect.add(new Option(order.title, order.id));
-                            }
-                            noticeMessage = ordersResult.orders.length
-                                ? `פרטי הספק אומתו. נמצאו ${ordersResult.orders.length} הזמנות רכש ו-${supplierInvoiceNumbers.length} חשבוניות קודמות.`
-                                : `פרטי הספק אומתו, אך לא נמצאו הזמנות רכש המשויכות אליו. נמצאו ${supplierInvoiceNumbers.length} חשבוניות קודמות.`;
-                        } else {
-                            throw new Error('Purchase order response had an invalid shape.');
-                        }
-                    } catch (error) {
-                        console.error('Could not load purchase orders and invoice history.', error);
-                        noticeMessage = orderListUnavailableMessage;
-                    }
-                    purchaseOrderNotice.textContent = noticeMessage;
-                    renderPurchaseOrderDetails();
                     document.getElementById('verified-number').value = supplier.supplierNumber;
                     document.getElementById('verified-name').value = supplier.supplierName;
                     document.getElementById('verified-email').value = supplier.supplierEmail;
@@ -821,6 +860,7 @@
                     loginPage.hidden = true;
                     invoicePage.hidden = false;
                     document.title = 'הגשת חשבונית - פורטל ספקים';
+                    loadSupplierOrders(supplier);
                 } else {
                     status.textContent = 'לא נמצאה התאמה לפרטים שהוזנו. נא לבדוק אותם ולנסות שוב.';
                 }
@@ -930,6 +970,13 @@
         }
 
         function validateInvoiceForm() {
+            if (ordersLoading || ordersLoadFailed) {
+                invoiceStatus.textContent = ordersLoading
+                    ? 'הזמנות הרכש עדיין נטענות. ניתן למלא את פרטי החשבונית ולשלוח לאחר סיום הטעינה.'
+                    : 'טעינת ההזמנות נכשלה. יש ללחוץ על „טעינה מחדש” לפני שליחת החשבונית.';
+                return false;
+            }
+
             const requiredFields = [...invoiceForm.querySelectorAll('[required]')];
             updateInvoiceAmountLimit();
             let firstInvalidField = null;
@@ -1056,10 +1103,16 @@
         document.getElementById('logout-button').addEventListener('click', () => {
             invoiceForm.reset();
             form.reset();
+            activeSupplier = null;
+            ordersRequestId += 1;
+            ordersLoading = false;
+            ordersLoadFailed = false;
             purchaseOrders.clear();
             populateCreditInvoiceNumbers([]);
             purchaseOrderSelect.replaceChildren(new Option('בחירת הזמנת רכש', ''));
-            purchaseOrderNotice.textContent = 'פרטי הספק אומתו.';
+            purchaseOrderSelect.disabled = false;
+            purchaseOrderNoticeText.textContent = 'פרטי הספק אומתו.';
+            purchaseOrdersRetryButton.hidden = true;
             renderPurchaseOrderDetails();
             invoiceStatus.textContent = '';
             status.textContent = '';
