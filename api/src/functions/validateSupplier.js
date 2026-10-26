@@ -103,7 +103,6 @@ async function supplierExists(values, accessToken) {
     const matchingItem = page.value.find((item) => {
       const fields = item.fields || {};
       return normalize(fields.field_1) === values.supplierNumber
-        && normalize(fields.Title) === values.supplierName
         && normalize(fields.field_7) === values.supplierEmail;
     });
 
@@ -111,7 +110,14 @@ async function supplierExists(values, accessToken) {
       if (typeof matchingItem.id !== 'string' || !matchingItem.id) {
         throw new Error('Matching supplier item did not include an ID');
       }
-      return { siteId: site.id, supplierId: matchingItem.id };
+      const fields = matchingItem.fields || {};
+      return {
+        siteId: site.id,
+        supplierId: matchingItem.id,
+        supplierName: typeof fields.Title === 'string'
+          ? fields.Title.trim()
+          : ''
+      };
     }
 
     if (page['@odata.nextLink']) {
@@ -124,7 +130,7 @@ async function supplierExists(values, accessToken) {
     }
   }
 
-  return { siteId: site.id, supplierId: null };
+  return { siteId: site.id, supplierId: null, supplierName: '' };
 }
 
 app.http('validateSupplier', {
@@ -152,26 +158,22 @@ app.http('validateSupplier', {
       return jsonResponse(400, { error: 'הבקשה אינה תקינה.' });
     }
 
-    const { supplierNumber, supplierName, supplierEmail } = payload;
+    const { supplierNumber, supplierEmail } = payload;
     if (
       typeof supplierNumber !== 'string'
-      || typeof supplierName !== 'string'
       || typeof supplierEmail !== 'string'
       || supplierNumber.trim().length < 1
       || supplierNumber.trim().length > 64
-      || supplierName.trim().length < 1
-      || supplierName.trim().length > 200
       || supplierEmail.trim().length > 254
       || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(supplierEmail.trim())
     ) {
-      return jsonResponse(400, { error: 'נא למלא מספר ספק, שם ספק וכתובת דואר אלקטרוני תקינים.' });
+      return jsonResponse(400, { error: 'נא למלא מספר ספק וכתובת דואר אלקטרוני תקינים.' });
     }
 
     try {
       const accessToken = await getAccessToken(credentials);
       const result = await supplierExists({
         supplierNumber: normalize(supplierNumber),
-        supplierName: normalize(supplierName),
         supplierEmail: normalize(supplierEmail)
       }, accessToken);
       const valid = result.supplierId !== null;
@@ -184,7 +186,7 @@ app.http('validateSupplier', {
           : 'Supplier login validation did not match a supplier record.',
         details: {
           supplierNumber: supplierNumber.trim(),
-          supplierName: supplierName.trim(),
+          supplierName: result.supplierName,
           supplierEmail: supplierEmail.trim(),
           valid,
           supplierId: result.supplierId
@@ -195,7 +197,8 @@ app.http('validateSupplier', {
 
       return jsonResponse(200, {
         valid,
-        supplierId: result.supplierId
+        supplierId: result.supplierId,
+        supplierName: result.supplierName
       });
     } catch (error) {
       context.error('Supplier validation failed', error);

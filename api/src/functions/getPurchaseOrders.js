@@ -167,7 +167,6 @@ async function findVerifiedSupplierIds(siteId, values, accessToken) {
   return items.some((item) => {
     const fields = item.fields || {};
     return normalize(fields.field_1) === values.supplierNumber
-      && normalize(fields.Title) === values.supplierName
       && normalize(fields.field_7) === values.supplierEmail;
   });
 }

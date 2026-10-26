@@ -508,12 +508,6 @@
             </div>
 
             <div class="field">
-                <label for="supplier-name">שם ספק</label>
-                <input id="supplier-name" name="supplierName" type="text" placeholder="שם העסק או הספק"
-                    autocomplete="organization" required>
-            </div>
-
-            <div class="field">
                 <label for="supplier-email">דואר אלקטרוני</label>
                 <input id="supplier-email" name="supplierEmail" type="email" placeholder="name@example.com"
                     autocomplete="email" dir="ltr" required>
@@ -732,7 +726,6 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         supplierNumber: form.elements.supplierNumber.value,
-                        supplierName: form.elements.supplierName.value,
                         supplierEmail: form.elements.supplierEmail.value
                     })
                 });
@@ -758,6 +751,7 @@
                 if (
                     !result
                     || typeof result.valid !== 'boolean'
+                    || typeof result.supplierName !== 'string'
                     || (result.valid && typeof result.supplierId !== 'string')
                 ) {
                     status.textContent = 'שירות בדיקת הספקים החזיר תשובה לא תקינה.';
@@ -765,7 +759,7 @@
                     const supplier = {
                         id: result.supplierId,
                         supplierNumber: form.elements.supplierNumber.value.trim(),
-                        supplierName: form.elements.supplierName.value.trim(),
+                        supplierName: result.supplierName.trim(),
                         supplierEmail: form.elements.supplierEmail.value.trim()
                     };
                     const orderListUnavailableMessage =
