@@ -256,6 +256,149 @@
             font-size: 15px;
         }
 
+        .upload-state {
+            min-height: 570px;
+            display: grid;
+            place-items: center;
+            margin-top: 10px;
+            border: 1px solid #d9e2e8;
+            border-radius: 18px;
+            background: #fff;
+            box-shadow: 0 18px 55px rgba(28, 54, 72, 0.09);
+            text-align: center;
+        }
+
+        .upload-state-card {
+            width: min(720px, calc(100% - 48px));
+            padding: 42px 24px 30px;
+        }
+
+        .upload-progress-ring,
+        .upload-success-icon,
+        .upload-error-icon {
+            width: 76px;
+            height: 76px;
+            display: grid;
+            place-items: center;
+            margin: 0 auto 24px;
+            border-radius: 50%;
+            background: #f1f7f9;
+            font-size: 46px;
+            font-weight: 700;
+        }
+
+        .upload-progress-ring {
+            width: 68px;
+            height: 68px;
+            border: 7px solid #dce8ec;
+            border-top-color: #078e88;
+            background: #fff;
+            animation: upload-spin 1s linear infinite;
+        }
+
+        .upload-success-icon {
+            color: #078a62;
+        }
+
+        .upload-error-icon {
+            color: #b42318;
+        }
+
+        .upload-state h2 {
+            margin: 0;
+            color: #17476b;
+            font-size: 30px;
+        }
+
+        .upload-state-subtitle {
+            margin: 16px 0 0;
+            color: #315873;
+            font-size: 18px;
+            line-height: 1.7;
+        }
+
+        .upload-state-detail {
+            margin: 18px 0 26px;
+            color: #657784;
+            font-size: 15px;
+            line-height: 1.7;
+        }
+
+        .upload-summary {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0;
+            margin: 28px 0;
+            border: 1px solid #dfe6ea;
+            border-radius: 8px;
+            background: #fbfcfd;
+        }
+
+        .upload-summary-item {
+            padding: 16px;
+        }
+
+        .upload-summary-item:first-child {
+            border-inline-end: 1px solid #dfe6ea;
+        }
+
+        .upload-summary-item span {
+            display: block;
+            margin-bottom: 6px;
+            color: #657784;
+            font-size: 14px;
+        }
+
+        .upload-summary-item strong {
+            color: #17476b;
+            font-size: 21px;
+        }
+
+        .upload-state-actions {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 24px;
+        }
+
+        .upload-state-actions .submit-button {
+            min-width: 200px;
+            margin: 0;
+        }
+
+        .upload-state-actions .secondary-button {
+            min-height: 52px;
+            padding: 0 24px;
+            border: 1px solid #cbd6de;
+            border-radius: 9px;
+            background: #fff;
+            color: #315873;
+            cursor: pointer;
+            font: inherit;
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        .upload-error-message {
+            margin: 28px 0;
+            padding: 17px;
+            border-radius: 8px;
+            background: #f7f8f9;
+            color: #315873;
+            line-height: 1.7;
+            white-space: pre-line;
+        }
+
+        @keyframes upload-spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .upload-progress-ring {
+                animation-duration: 2.5s;
+            }
+        }
+
         .form-panel {
             margin-top: 10px;
             border: 1px solid #d9e2e8;
@@ -465,6 +608,27 @@
         }
 
         @media (max-width: 440px) {
+            .upload-state-card {
+                width: calc(100% - 24px);
+                padding-inline: 12px;
+            }
+
+            .upload-summary,
+            .upload-state-actions {
+                grid-template-columns: 1fr;
+                flex-direction: column;
+            }
+
+            .upload-summary-item:first-child {
+                border-inline-end: 0;
+                border-bottom: 1px solid #dfe6ea;
+            }
+
+            .upload-state-actions .submit-button,
+            .upload-state-actions .secondary-button {
+                width: 100%;
+            }
+
             .purchase-picker {
                 grid-template-columns: 1fr;
                 gap: 7px;
@@ -535,6 +699,52 @@
             <span id="purchase-order-notice-text">פרטי הספק אומתו.</span>
             <button type="button" id="purchase-orders-retry" hidden>טעינה מחדש</button>
         </div>
+
+        <section class="upload-state" id="upload-processing" hidden aria-live="polite">
+            <div class="upload-state-card">
+                <div class="upload-progress-ring" aria-hidden="true"></div>
+                <h2>החשבונית שלך נשלחת...</h2>
+                <p class="upload-state-subtitle">אנחנו מעלים את הקובץ והקבצים הנוספים ומעדכנים את מערכת SharePoint.</p>
+                <p class="upload-state-detail">נא להמתין ולא לסגור את החלון.<br>אין צורך ללחוץ על הכפתור שוב.</p>
+            </div>
+        </section>
+
+        <section class="upload-state" id="upload-success" hidden aria-live="polite">
+            <div class="upload-state-card">
+                <div class="upload-success-icon" aria-hidden="true">✓</div>
+                <h2>החשבונית התקבלה בהצלחה</h2>
+                <p class="upload-state-subtitle">החשבונית והקבצים הנוספים נבדקו ונשמרו במערכת.</p>
+                <div class="upload-summary">
+                    <div class="upload-summary-item">
+                        <span>מספר חשבונית / אסמכתא</span>
+                        <strong id="success-invoice-number">—</strong>
+                    </div>
+                    <div class="upload-summary-item">
+                        <span>תאריך חשבונית</span>
+                        <strong id="success-invoice-date">—</strong>
+                    </div>
+                </div>
+                <p class="upload-state-detail" id="success-folder-path"></p>
+                <div class="upload-state-actions">
+                    <button type="button" class="secondary-button" id="print-success">שמירת אישור</button>
+                    <button type="button" class="submit-button" id="another-invoice">הפקת חשבונית נוספת</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="upload-state" id="upload-error" hidden aria-live="assertive">
+            <div class="upload-state-card">
+                <div class="upload-error-icon" aria-hidden="true">!</div>
+                <h2>שליחת החשבונית נכשלה</h2>
+                <p class="upload-state-subtitle">החשבונית לא נשמרה במערכת.</p>
+                <p class="upload-state-detail">ניתן לחזור לטופס ולנסות שוב. הקבצים והפרטים נשמרו למילוי חוזר.</p>
+                <div class="upload-error-message" id="upload-error-message"></div>
+                <div class="upload-state-actions">
+                    <button type="button" class="secondary-button" id="return-to-invoice">חזרה לטופס</button>
+                    <button type="button" class="submit-button" id="retry-upload">ניסיון שליחה חוזר</button>
+                </div>
+            </div>
+        </section>
 
         <form id="invoice-form" novalidate>
             <section class="form-panel" aria-labelledby="supplier-panel-title">
@@ -652,6 +862,9 @@
         const invoicePage = document.getElementById('invoice-page');
         const invoiceForm = document.getElementById('invoice-form');
         const invoiceStatus = document.getElementById('invoice-status');
+        const uploadProcessing = document.getElementById('upload-processing');
+        const uploadSuccess = document.getElementById('upload-success');
+        const uploadError = document.getElementById('upload-error');
         const purchaseOrderSelect = document.getElementById('purchase-order');
         const purchaseOrderNoticeText = document.getElementById('purchase-order-notice-text');
         const purchaseOrdersRetryButton = document.getElementById('purchase-orders-retry');
@@ -791,6 +1004,78 @@
             if (activeSupplier && !ordersLoading) {
                 loadSupplierOrders(activeSupplier);
             }
+        });
+
+        function showUploadState(state) {
+            invoiceForm.hidden = state !== 'form';
+            uploadProcessing.hidden = state !== 'processing';
+            uploadSuccess.hidden = state !== 'success';
+            uploadError.hidden = state !== 'error';
+            purchaseOrderNotice.hidden = state !== 'form';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function formatInvoiceDate(value) {
+            if (!value) {
+                return '—';
+            }
+            const [year, month, day] = value.split('-');
+            return year && month && day ? `${day}.${month}.${year}` : value;
+        }
+
+        function resetInvoiceFormForAnotherInvoice() {
+            invoiceForm.querySelectorAll('input, select, textarea, button').forEach((control) => {
+                control.disabled = false;
+            });
+            invoiceForm.querySelector('button[type="submit"]').textContent = 'העלאת חשבונית';
+
+            const invoiceNumber = invoiceForm.elements.invoiceNumber;
+            const invoiceDate = invoiceForm.elements.invoiceDate;
+            const invoiceTotal = invoiceForm.elements.invoiceTotal;
+            const allocationNumber = invoiceForm.elements.allocationNumber;
+            const documentType = invoiceForm.elements.documentType;
+            const supplierNotes = invoiceForm.elements.supplierNotes;
+            const invoiceFile = invoiceForm.elements.invoiceFile;
+            const supportingFiles = invoiceForm.elements.supportingFiles;
+
+            invoiceNumber.value = '';
+            invoiceDate.value = '';
+            invoiceTotal.value = '';
+            allocationNumber.value = '';
+            documentType.value = '';
+            supplierNotes.value = '';
+            invoiceFile.value = '';
+            supportingFiles.value = '';
+            creditInvoiceSelect.value = '';
+            updateCreditInvoiceField();
+            purchaseOrderSelect.value = '';
+            renderPurchaseOrderDetails();
+            invoiceSubmissionStarted = false;
+            invoiceStatus.textContent = '';
+            showUploadState('form');
+            invoiceNumber.focus();
+        }
+
+        document.getElementById('another-invoice').addEventListener('click', () => {
+            resetInvoiceFormForAnotherInvoice();
+            if (activeSupplier) {
+                loadSupplierOrders(activeSupplier);
+            }
+        });
+
+        document.getElementById('print-success').addEventListener('click', () => {
+            window.print();
+        });
+
+        document.getElementById('return-to-invoice').addEventListener('click', () => {
+            invoiceSubmissionStarted = false;
+            showUploadState('form');
+        });
+
+        document.getElementById('retry-upload').addEventListener('click', () => {
+            invoiceSubmissionStarted = false;
+            showUploadState('form');
+            invoiceForm.requestSubmit();
         });
 
         form.addEventListener('submit', async (event) => {
@@ -1042,20 +1327,31 @@
             const projectFolderUrl = document.getElementById('purchase-project-folder-value').value.trim();
             const submitButton = invoiceForm.querySelector('button[type="submit"]');
             const submissionData = new FormData(invoiceForm);
+            const uploadedInvoiceNumber = invoiceForm.elements.invoiceNumber.value.trim();
+            const uploadedInvoiceDate = invoiceForm.elements.invoiceDate.value;
             invoiceSubmissionStarted = true;
             invoiceForm.querySelectorAll('input, select, textarea, button').forEach((control) => {
                 control.disabled = true;
             });
             submitButton.textContent = 'בודק ומעלה...';
-            invoiceStatus.textContent = 'הבקשה נשלחה. ממתין לתוצאות בדיקת SharePoint והעלאה...';
+            showUploadState('processing');
+
+            const showUploadError = (errorCode, message, details = '') => {
+                invoiceForm.querySelectorAll('input, select, textarea, button').forEach((control) => {
+                    control.disabled = false;
+                });
+                submitButton.textContent = 'העלאת חשבונית';
+                document.getElementById('upload-error-message').textContent = [
+                    message,
+                    details,
+                    `קוד שגיאה: ${errorCode}`
+                ].filter(Boolean).join('\n');
+                showUploadState('error');
+            };
 
             try {
                 const invoiceFile = invoiceForm.elements.invoiceFile.files[0];
                 const projectFolderPath = `${decodeURIComponent(new URL(projectFolderUrl).pathname).replace(/\/+$/, '')}/חשבוניות`;
-                console.log('Invoice upload target:', {
-                    folderPath: projectFolderPath,
-                    fileName: invoiceFile ? invoiceFile.name : ''
-                });
 
                 const response = await fetch('/api/submitInvoice', {
                     method: 'POST',
@@ -1068,8 +1364,11 @@
                         result = JSON.parse(responseBody);
                     }
                 } catch {
-                    invoiceStatus.textContent =
-                        `שירות בדיקת החשבונית החזיר תשובה לא תקינה (HTTP ${response.status}); לא התקבל פירוט של שלבי השרת.`;
+                    showUploadError(
+                        `ERR-${response.status}`,
+                        'שירות בדיקת החשבונית החזיר תשובה לא תקינה.',
+                        'לא התקבל פירוט של שלבי השרת.'
+                    );
                     return;
                 }
 
@@ -1077,26 +1376,35 @@
                     const errorMessage = result && typeof result.error === 'string'
                         ? result.error
                         : 'לא ניתן לבדוק את התאמת החשבונית כרגע.';
-                    invoiceStatus.textContent = formatSubmissionProgress(result, errorMessage)
-                        || `${errorMessage} (HTTP ${response.status})`;
+                    showUploadError(
+                        `ERR-${response.status}`,
+                        errorMessage,
+                        formatSubmissionProgress(result).trim()
+                    );
                     return;
                 }
 
                 if (!result || result.success !== true || result.validated !== true || result.uploaded !== true) {
-                    invoiceStatus.textContent = 'שירות בדיקת החשבונית החזיר תשובה לא תקינה.';
+                    showUploadError(
+                        `ERR-${response.status}`,
+                        'שירות בדיקת החשבונית החזיר תשובה לא תקינה.'
+                    );
                     return;
                 }
 
-                invoiceStatus.textContent = [
-                    `החשבונית אומתה והועלתה בהצלחה לתיקייה ${result.folderServerRelativeUrl || projectFolderPath}.`,
-                    ...formatSubmissionProgress(result).split('\n').filter(Boolean)
-                ].join('\n');
+                document.getElementById('success-invoice-number').textContent = uploadedInvoiceNumber;
+                document.getElementById('success-invoice-date').textContent = formatInvoiceDate(uploadedInvoiceDate);
+                document.getElementById('success-folder-path').textContent =
+                    `הקובץ נשמר בתיקייה ${result.folderServerRelativeUrl || projectFolderPath}.`;
+                invoiceStatus.textContent = '';
                 invoiceStatus.classList.add('is-success');
+                showUploadState('success');
             } catch {
-                invoiceStatus.textContent =
-                    'בקשת ההעלאה נכשלה לפני שהתקבלה תשובת שרת. בדקו את חיבור הרשת ואת יומן השרת.';
-            } finally {
-                submitButton.textContent = 'השליחה הסתיימה';
+                showUploadError(
+                    'ERR-NETWORK',
+                    'בקשת ההעלאה נכשלה לפני שהתקבלה תשובת שרת.',
+                    'בדקו את חיבור הרשת ונסו לשלוח שוב.'
+                );
             }
         });
 
@@ -1116,6 +1424,11 @@
             renderPurchaseOrderDetails();
             invoiceStatus.textContent = '';
             status.textContent = '';
+            showUploadState('form');
+            invoiceForm.querySelectorAll('input, select, textarea, button').forEach((control) => {
+                control.disabled = false;
+            });
+            invoiceForm.querySelector('button[type="submit"]').textContent = 'העלאת חשבונית';
             loginPage.hidden = false;
             invoicePage.hidden = true;
             document.title = 'כניסת ספקים';
