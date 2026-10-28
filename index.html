@@ -1330,11 +1330,6 @@
             const uploadedInvoiceNumber = invoiceForm.elements.invoiceNumber.value.trim();
             const uploadedInvoiceDate = invoiceForm.elements.invoiceDate.value;
             invoiceSubmissionStarted = true;
-            invoiceForm.querySelectorAll('input, select, textarea, button').forEach((control) => {
-                control.disabled = true;
-            });
-            submitButton.textContent = 'בודק ומעלה...';
-            showUploadState('processing');
 
             const showUploadError = (errorCode, message, details = '') => {
                 invoiceForm.querySelectorAll('input, select, textarea, button').forEach((control) => {
@@ -1353,10 +1348,18 @@
                 const invoiceFile = invoiceForm.elements.invoiceFile.files[0];
                 const projectFolderPath = `${decodeURIComponent(new URL(projectFolderUrl).pathname).replace(/\/+$/, '')}/חשבוניות`;
 
-                const response = await fetch('/api/submitInvoice', {
+                const uploadRequest = fetch('/api/submitInvoice', {
                     method: 'POST',
                     body: submissionData
                 });
+
+                invoiceForm.querySelectorAll('input, select, textarea, button').forEach((control) => {
+                    control.disabled = true;
+                });
+                submitButton.textContent = 'בודק ומעלה...';
+                showUploadState('processing');
+
+                const response = await uploadRequest;
                 const responseBody = await response.text();
                 let result = null;
                 try {
