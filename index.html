@@ -134,7 +134,10 @@
         }
 
         .submit-button {
+            display: inline-grid;
+            place-items: center;
             min-height: 52px;
+            text-decoration: none;
             margin-top: 5px;
             border: 0;
             border-radius: 9px;
@@ -727,6 +730,7 @@
                 <p class="upload-state-detail" id="success-folder-path"></p>
                 <div class="upload-state-actions">
                     <button type="button" class="secondary-button" id="print-success">שמירת אישור</button>
+                    <a class="submit-button" id="open-approval-screen" hidden>צפייה ואישור החשבונית</a>
                     <button type="button" class="submit-button" id="another-invoice">הפקת חשבונית נוספת</button>
                 </div>
             </div>
@@ -1404,6 +1408,9 @@
                 document.getElementById('success-invoice-date').textContent = formatInvoiceDate(uploadedInvoiceDate);
                 document.getElementById('success-folder-path').textContent =
                     `הקובץ נשמר בתיקייה ${result.folderServerRelativeUrl || projectFolderPath}.`;
+                const approvalLink = document.getElementById('open-approval-screen');
+                approvalLink.hidden = false;
+                approvalLink.href = `/approval.html?itemId=${encodeURIComponent(result.itemId)}`;
                 invoiceStatus.textContent = '';
                 invoiceStatus.classList.add('is-success');
                 showUploadState('success');

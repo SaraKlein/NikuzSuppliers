@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f6f8">
+  <title>אישור חשבונית</title>
+  <style>
+    :root { font-family: Arial, "Noto Sans Hebrew", sans-serif; color: #123b60; background: #f3f6f8; }
+    * { box-sizing: border-box; }
+    body { min-width: 320px; min-height: 100vh; margin: 0; background: #f3f6f8; }
+    [hidden] { display: none !important; }
+    .shell { max-width: 1180px; margin: 32px auto; padding: 0 24px; }
+    .card { padding: 28px; border: 1px solid #dfe7ec; border-radius: 18px; background: #fff; box-shadow: 0 16px 45px rgba(28,54,72,.08); }
+    h1 { margin: 0 0 8px; font-size: 32px; }
+    h2 { margin: 0 0 18px; font-size: 23px; }
+    .subtitle { margin: 0 0 24px; color: #657784; font-size: 16px; }
+    .layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(290px, .65fr); gap: 24px; }
+    .preview { min-height: 620px; border: 1px solid #dfe7ec; border-radius: 12px; background: #eef2f5; overflow: hidden; }
+    .preview iframe { width: 100%; height: 620px; border: 0; }
+    .details { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px; }
+    .detail { min-width: 0; padding: 12px 14px; border-radius: 10px; background: #f7f9fa; }
+    .detail strong { display: block; margin-bottom: 5px; color: #657784; font-size: 14px; }
+    .detail span { font-size: 17px; overflow-wrap: anywhere; }
+    fieldset { margin: 22px 0 0; padding: 0; border: 0; }
+    legend { margin-bottom: 10px; font-size: 18px; font-weight: 700; }
+    .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .choice { display: flex; align-items: center; gap: 9px; min-height: 48px; padding: 10px 14px; border: 1px solid #ccd7de; border-radius: 10px; font-size: 17px; }
+    .choice input { width: 18px; height: 18px; }
+    label:not(.choice) { display: block; margin: 18px 0 8px; font-size: 17px; font-weight: 700; }
+    textarea { width: 100%; min-height: 112px; resize: vertical; border: 1px solid #ccd7de; border-radius: 10px; padding: 12px; color: #123b60; font: inherit; font-size: 17px; }
+    textarea:focus, .choice:focus-within { outline: 3px solid rgba(8,117,173,.16); border-color: #0875ad; }
+    .actions { display: flex; gap: 10px; margin-top: 18px; }
+    button, .open-file { min-height: 46px; border: 0; border-radius: 10px; padding: 11px 18px; font: inherit; font-size: 18px; font-weight: 700; cursor: pointer; text-decoration: none; }
+    button { flex: 1; background: #0875ad; color: #fff; }
+    button:disabled { opacity: .65; cursor: wait; }
+    .open-file { display: inline-block; margin-top: 14px; background: #eaf4f9; color: #0875ad; }
+    .notice { margin: 16px 0 0; min-height: 24px; color: #a33a32; font-size: 16px; }
+    .notice.success { color: #26734d; }
+    .state { padding: 48px 24px; text-align: center; }
+    @media (max-width: 850px) {
+      .shell { margin: 12px auto; padding: 0 12px; }
+      .card { padding: 20px; }
+      .layout { grid-template-columns: 1fr; }
+      .preview, .preview iframe { min-height: 520px; height: 520px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="card" id="loading"><div class="state">טוען את פרטי החשבונית...</div></section>
+
+    <section class="card" id="load-error" hidden>
+      <h1>לא ניתן לפתוח את החשבונית</h1>
+      <p id="load-error-message" class="subtitle"></p>
+    </section>
+
+    <section id="approval" hidden>
+      <div class="card">
+        <h1>אישור חשבונית</h1>
+        <p class="subtitle">בדקו את פרטי החשבונית והקובץ המצורף, ולאחר מכן בחרו את ההחלטה.</p>
+        <div class="layout">
+          <div>
+            <h2>תצוגת החשבונית</h2>
+            <div class="preview" id="preview"></div>
+            <a id="open-file" class="open-file" target="_blank" rel="noopener">פתיחת הקובץ בחלון חדש</a>
+          </div>
+          <form id="decision-form">
+            <h2>פרטי החשבונית</h2>
+            <div class="details" id="details"></div>
+            <fieldset>
+              <legend>החלטה</legend>
+              <div class="choices">
+                <label class="choice"><input type="radio" name="status" value="approve" required> לאשר</label>
+                <label class="choice"><input type="radio" name="status" value="reject" required> לדחות</label>
+              </div>
+            </fieldset>
+            <label id="comments-label" for="comments" hidden>הערה — נדרשת בדחייה</label>
+            <textarea id="comments" name="comments" hidden maxlength="10000"></textarea>
+            <div class="actions"><button type="submit" id="submit">שליחת החלטה</button></div>
+            <p id="notice" class="notice" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const itemId = new URL(location.href).searchParams.get('itemId');
+    const loading = document.getElementById('loading');
+    const loadError = document.getElementById('load-error');
+    const approval = document.getElementById('approval');
+    const form = document.getElementById('decision-form');
+    const statusInputs = [...form.querySelectorAll('input[name="status"]')];
+    const comments = document.getElementById('comments');
+    const commentsLabel = document.getElementById('comments-label');
+    const submitButton = document.getElementById('submit');
+    const notice = document.getElementById('notice');
+    let submitted = false;
+
+    function showLoadError(message) {
+      loading.hidden = true;
+      loadError.hidden = false;
+      document.getElementById('load-error-message').textContent = message;
+    }
+
+    function formatDate(value) {
+      if (!value) return '—';
+      const date = new Date(value);
+      return Number.isNaN(date.getTime())
+        ? String(value)
+        : new Intl.DateTimeFormat('he-IL', { dateStyle: 'short' }).format(date);
+    }
+
+    function renderDetails(fields) {
+      const values = [
+        ['מספר חשבונית', fields.invoiceNumber],
+        ['תאריך חשבונית', formatDate(fields.invoiceDate)],
+        ['סכום חשבונית', fields.amount],
+        ['שם הספק', fields.supplierName],
+        ['מספר הזמנת רכש', fields.purchaseOrder],
+        ['מספר הקצאה', fields.allocationNumber],
+        ['סוג מסמך', fields.documentType],
+        ['חשבונית מקורית', fields.linkedInvoiceNumber],
+        ['סטטוס נוכחי', fields.status],
+        ['הערות הספק', fields.supplierNotes],
+        ['שם הקובץ', fields.name]
+      ];
+      document.getElementById('details').innerHTML = values.map(([label, value]) => {
+        const text = value === null || value === undefined || value === '' ? '—' : String(value);
+        return `<div class="detail"><strong>${label}</strong><span></span></div>`;
+      }).join('');
+      [...document.querySelectorAll('#details .detail span')].forEach((element, index) => {
+        element.textContent = values[index][1] === null || values[index][1] === undefined || values[index][1] === ''
+          ? '—'
+          : String(values[index][1]);
+        if (index === 1) element.textContent = formatDate(values[index][1]);
+      });
+    }
+
+    function updateCommentsVisibility() {
+      const rejection = statusInputs.some((input) => input.checked && input.value === 'reject');
+      comments.hidden = !rejection;
+      commentsLabel.hidden = !rejection;
+      comments.required = rejection;
+      if (!rejection) comments.value = '';
+    }
+
+    statusInputs.forEach((input) => input.addEventListener('change', updateCommentsVisibility));
+
+    async function loadInvoice() {
+      if (!/^\d+$/.test(itemId || '')) {
+        showLoadError('יש לצרף בכתובת URL את מזהה פריט החשבונית itemId.');
+        return;
+      }
+      try {
+        const response = await fetch(`/api/invoiceApproval?itemId=${encodeURIComponent(itemId)}`);
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error || 'לא ניתן לטעון את החשבונית.');
+
+        renderDetails(body.fields);
+        if (body.fileUrl) {
+          document.getElementById('open-file').href = body.fileUrl;
+          const preview = document.createElement('iframe');
+          preview.src = body.fileUrl;
+          preview.title = body.fields.name || 'תצוגת חשבונית';
+          document.getElementById('preview').append(preview);
+        } else {
+          document.getElementById('preview').innerHTML = '<div class="state">קישור תצוגה אינו זמין. ניתן לפתוח את הקובץ בחלון נפרד.</div>';
+          document.getElementById('open-file').hidden = true;
+        }
+        loading.hidden = true;
+        approval.hidden = false;
+      } catch (error) {
+        showLoadError(error instanceof Error ? error.message : 'לא ניתן לטעון את החשבונית.');
+      }
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (submitted) return;
+      const selected = statusInputs.find((input) => input.checked);
+      if (!selected) {
+        notice.textContent = 'יש לבחור אישור או דחייה.';
+        return;
+      }
+      if (selected.value === 'reject' && !comments.value.trim()) {
+        notice.textContent = 'נדרש להוסיף הערה בעת דחיית החשבונית.';
+        comments.focus();
+        return;
+      }
+
+      submitted = true;
+      submitButton.disabled = true;
+      submitButton.textContent = 'שולח החלטה...';
+      notice.textContent = '';
+      notice.classList.remove('success');
+      try {
+        const response = await fetch(`/api/invoiceApproval?itemId=${encodeURIComponent(itemId)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: selected.value, comments: comments.value.trim() })
+        });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error || 'שליחת ההחלטה נכשלה.');
+        notice.textContent = selected.value === 'approve'
+          ? 'החשבונית אושרה בהצלחה.'
+          : 'החשבונית נדחתה בהצלחה וההערה נשמרה.';
+        notice.classList.add('success');
+        submitButton.textContent = 'ההחלטה נשמרה';
+        statusInputs.forEach((input) => { input.disabled = true; });
+        comments.disabled = true;
+      } catch (error) {
+        submitted = false;
+        submitButton.disabled = false;
+        submitButton.textContent = 'שליחת החלטה';
+        notice.textContent = error instanceof Error ? error.message : 'שליחת ההחלטה נכשלה.';
+      }
+    });
+
+    loadInvoice();
+  </script>
+</body>
+</html>

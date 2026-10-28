@@ -863,6 +863,7 @@ app.http('submitInvoice', {
         invoiceDate: getTextField(formData, 'invoiceDate'),
         invoiceTotal: getTextField(formData, 'invoiceTotal'),
         documentType: getTextField(formData, 'documentType'),
+        InvoiceStatus: 'חדש',
         invoiceFileName: formData.get('invoiceFile') && formData.get('invoiceFile').name,
         supportingFileNames: formData.getAll('supportingFiles')
           .filter((file) => isFile(file) && file.name)
@@ -1030,6 +1031,7 @@ app.http('submitInvoice', {
         validated: true,
         uploaded: true,
         fileName: uploadResult.fileName,
+        itemId: uploadResult.listItemId,
         fileUrl: uploadResult.fileUrl,
         folderServerRelativeUrl: uploadResult.folderServerRelativeUrl,
         supportingFiles: uploadedSupportingFiles,
