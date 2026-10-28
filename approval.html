@@ -87,6 +87,7 @@
 
   <script>
     const itemId = new URL(location.href).searchParams.get('itemId');
+    console.log('itemId:', itemId);
     const loading = document.getElementById('loading');
     const loadError = document.getElementById('load-error');
     const approval = document.getElementById('approval');
@@ -105,6 +106,7 @@
     }
 
     function formatDate(value) {
+      console.log('formatDate value:', value);
       if (!value) return '—';
       const date = new Date(value);
       return Number.isNaN(date.getTime())
@@ -113,6 +115,7 @@
     }
 
     function renderDetails(fields) {
+      console.log('renderDetails fields:', fields);
       const values = [
         ['מספר חשבונית', fields.invoiceNumber],
         ['תאריך חשבונית', formatDate(fields.invoiceDate)],
@@ -149,6 +152,7 @@
     statusInputs.forEach((input) => input.addEventListener('change', updateCommentsVisibility));
 
     async function loadInvoice() {
+      console.log('loadInvoice itemId:', itemId);
       if (!/^\d+$/.test(itemId || '')) {
         showLoadError('יש לצרף בכתובת URL את מזהה פריט החשבונית itemId.');
         return;
