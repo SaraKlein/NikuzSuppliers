@@ -166,8 +166,11 @@
         if (body.fileUrl) {
           document.getElementById('open-file').href = body.fileUrl;
           const preview = document.createElement('iframe');
-          preview.src = body.fileUrl;
+          preview.src = `/api/invoiceApproval?itemId=${encodeURIComponent(itemId)}&download=1`;
           preview.title = body.fields.name || 'תצוגת חשבונית';
+          preview.addEventListener('error', () => {
+            document.getElementById('preview').innerHTML = '<div class="state">לא ניתן להציג תצוגה מקדימה. ניתן לפתוח את הקובץ בחלון נפרד.</div>';
+          });
           document.getElementById('preview').append(preview);
         } else {
           document.getElementById('preview').innerHTML = '<div class="state">קישור תצוגה אינו זמין. ניתן לפתוח את הקובץ בחלון נפרד.</div>';

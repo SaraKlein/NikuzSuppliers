@@ -128,6 +128,50 @@ async function getInvoice(accessToken, itemId) {
   };
 }
 
+async function getInvoiceFileResponse(accessToken, itemId) {
+  const { site, list } = await getSiteAndInvoiceList(accessToken);
+  const driveItem = await graphRequest(
+    `${graphBaseUrl}/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(list.id)}/items/${encodeURIComponent(itemId)}/driveItem?$select=id,name,file,webUrl,parentReference`,
+    accessToken,
+    'invoice drive item lookup'
+  );
+  if (typeof driveItem.id !== 'string' || !driveItem.id) {
+    throw new Error('The invoice list item did not resolve to a document drive item.');
+  }
+  const driveId = driveItem.parentReference && driveItem.parentReference.driveId;
+  if (typeof driveId !== 'string' || !driveId) {
+    throw new Error('The invoice drive item did not include its document drive ID.');
+  }
+
+  const itemUrl = `${graphBaseUrl}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(driveItem.id)}`;
+  const item = driveItem;
+  const response = await fetch(`${itemUrl}/content`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(120000)
+  });
+  if (!response.ok) {
+    throw new Error(`Microsoft Graph invoice file download failed (${response.status}).`);
+  }
+
+  const contentType = response.headers.get('content-type')
+    || item.file?.mimeType
+    || 'application/pdf';
+  const fileName = typeof item.name === 'string' && item.name
+    ? item.name
+    : `invoice-${itemId}`;
+
+  return {
+    status: 200,
+    headers: {
+      'Content-Type': contentType,
+      'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff'
+    },
+    body: new Uint8Array(await response.arrayBuffer())
+  };
+}
+
 function getItemId(request) {
   const itemId = request.query.get('itemId');
   return /^\d+$/.test(itemId || '') ? itemId : null;
@@ -153,6 +197,9 @@ app.http('invoiceApproval', {
       const accessToken = await getAccessToken(credentials);
 
       if (request.method === 'GET') {
+        if (request.query.get('download') === '1') {
+          return await getInvoiceFileResponse(accessToken, itemId);
+        }
         return jsonResponse(200, await getInvoice(accessToken, itemId));
       }
 
