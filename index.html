@@ -1007,6 +1007,7 @@
         });
 
         function showUploadState(state) {
+            console.log('showUploadState', state);
             invoiceForm.hidden = state !== 'form';
             uploadProcessing.hidden = state !== 'processing';
             uploadSuccess.hidden = state !== 'success';
@@ -1024,6 +1025,7 @@
         }
 
         function resetInvoiceFormForAnotherInvoice() {
+            console.log('resetInvoiceFormForAnotherInvoice');
             invoiceForm.querySelectorAll('input, select, textarea, button').forEach((control) => {
                 control.disabled = false;
             });
@@ -1351,10 +1353,10 @@
                 const invoiceFile = invoiceForm.elements.invoiceFile.files[0];
                 const projectFolderPath = `${decodeURIComponent(new URL(projectFolderUrl).pathname).replace(/\/+$/, '')}/חשבוניות`;
 
-                const uploadRequest = fetch('/api/submitInvoice', {
+              /*  const uploadRequest = fetch('/api/submitInvoice', {
                     method: 'POST',
                     body: submissionData
-                });
+                });*/
 
                 invoiceForm.querySelectorAll('input, select, textarea, button').forEach((control) => {
                     control.disabled = true;
