@@ -6,6 +6,7 @@ const sitePath = '/sites/Projects';
 const supplierListName = 'ספקים';
 const ordersListName = 'הזמנות';
 const financeTaskListName = 'רשימת משימות - כספים';
+const invoiceListName = 'Invoices';
 const supplierFields = ['field_1', 'Title', 'field_7'];
 
 function jsonResponse(status, body) {
@@ -171,6 +172,23 @@ async function findVerifiedSupplierIds(siteId, values, accessToken) {
   });
 }
 
+async function getUploadedInvoiceNumber(siteId, invoiceNumber, supplierName, accessToken) {
+  const invoiceList = await getList(siteId, invoiceListName, accessToken);
+  const items = await getItems(
+    siteId,
+    invoiceList.id,
+    ['InvoiceNumber', 'SupplierName'],
+    accessToken,
+    'uploaded invoice reconciliation lookup'
+  );
+
+  return items.some((item) => {
+    const fields = item.fields || {};
+    return normalize(fields.InvoiceNumber) === normalize(invoiceNumber)
+      && normalize(fields.SupplierName) === normalize(supplierName);
+  });
+}
+
 async function getSupplierInvoiceNumbers(siteId, supplierName, accessToken) {
   const financeList = await getList(siteId, financeTaskListName, accessToken);
   const items = await getItems(
@@ -222,7 +240,12 @@ app.http('getPurchaseOrders', {
       return jsonResponse(400, { error: 'הבקשה אינה תקינה.' });
     }
 
-    const { supplierNumber, supplierName, supplierEmail } = payload;
+    const {
+      supplierNumber,
+      supplierName,
+      supplierEmail,
+      reconciliationInvoiceNumber
+    } = payload;
     if (
       typeof supplierNumber !== 'string'
       || typeof supplierName !== 'string'
@@ -233,6 +256,10 @@ app.http('getPurchaseOrders', {
       || supplierName.trim().length > 200
       || supplierEmail.trim().length > 254
       || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(supplierEmail.trim())
+      || (reconciliationInvoiceNumber !== undefined
+        && (typeof reconciliationInvoiceNumber !== 'string'
+          || reconciliationInvoiceNumber.trim().length < 1
+          || reconciliationInvoiceNumber.length > 64))
     ) {
       return jsonResponse(400, { error: 'נא למלא פרטי ספק תקינים.' });
     }
@@ -254,9 +281,17 @@ app.http('getPurchaseOrders', {
         return jsonResponse(403, { error: 'פרטי הספק לא אומתו מול SharePoint.' });
       }
 
-      const [ordersList, invoiceNumbers] = await Promise.all([
+      const [ordersList, invoiceNumbers, uploadedInvoiceFound] = await Promise.all([
         getList(site.id, ordersListName, accessToken),
-        getSupplierInvoiceNumbers(site.id, supplierName, accessToken)
+        getSupplierInvoiceNumbers(site.id, supplierName, accessToken),
+        reconciliationInvoiceNumber
+          ? getUploadedInvoiceNumber(
+              site.id,
+              reconciliationInvoiceNumber,
+              supplierName,
+              accessToken
+            )
+          : Promise.resolve(false)
       ]);
       const columns = await getColumns(site.id, ordersList.id, accessToken);
       const projectColumn = columns.find((column) => (
@@ -317,7 +352,11 @@ app.http('getPurchaseOrders', {
         })
         .filter((order) => order.title);
 
-      return jsonResponse(200, { orders: result, invoiceNumbers });
+      return jsonResponse(200, {
+        orders: result,
+        invoiceNumbers,
+        uploadedInvoiceFound
+      });
     } catch (error) {
       context.error('Purchase order lookup failed.', error);
       return jsonResponse(502, { error: 'לא ניתן לטעון את הזמנות הרכש כרגע.' });
