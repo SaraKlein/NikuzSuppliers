@@ -1012,7 +1012,7 @@
             uploadProcessing.hidden = state !== 'processing';
             uploadSuccess.hidden = state !== 'success';
             uploadError.hidden = state !== 'error';
-            purchaseOrderNotice.hidden = state !== 'form';
+            document.getElementById('purchase-order-notice').hidden = state !== 'form';
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -1353,10 +1353,10 @@
                 const invoiceFile = invoiceForm.elements.invoiceFile.files[0];
                 const projectFolderPath = `${decodeURIComponent(new URL(projectFolderUrl).pathname).replace(/\/+$/, '')}/חשבוניות`;
 
-              /*  const uploadRequest = fetch('/api/submitInvoice', {
+                const uploadRequest = fetch('/api/submitInvoice', {
                     method: 'POST',
                     body: submissionData
-                });*/
+                });
 
                 invoiceForm.querySelectorAll('input, select, textarea, button').forEach((control) => {
                     control.disabled = true;
