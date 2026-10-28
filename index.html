@@ -1402,11 +1402,16 @@
                 invoiceStatus.textContent = '';
                 invoiceStatus.classList.add('is-success');
                 showUploadState('success');
-            } catch {
+            } catch (error) {
+                const reason = error instanceof Error ? error.message : String(error);
+                console.error('Invoice submission fetch failed.', error);
+                const details = window.location.protocol === 'file:'
+                    ? 'יש לפתוח את האתר דרך הכתובת שמוגשת יחד עם ה-API, ולא לפתוח את קובץ index.html ישירות.'
+                    : `הדפדפן לא הצליח להתחבר לכתובת ${new URL('/api/submitInvoice', window.location.href).href}. בדקו חיבור רשת, כתובת API ו-CORS.`;
                 showUploadError(
                     'ERR-NETWORK',
                     'בקשת ההעלאה נכשלה לפני שהתקבלה תשובת שרת.',
-                    'בדקו את חיבור הרשת ונסו לשלוח שוב.'
+                    `${details}\nפרט הדפדפן: ${reason}`
                 );
             }
         });
