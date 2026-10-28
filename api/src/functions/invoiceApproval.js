@@ -4,7 +4,7 @@ const { writeApplicationLog } = require('../shared/applicationLogger');
 const graphBaseUrl = 'https://graph.microsoft.com/v1.0';
 const siteHost = 'yardend.sharepoint.com';
 const sitePath = '/sites/Projects';
-const invoiceLibraryName = 'Invoices';
+const invoiceLibraryName = 'מסמכי פרויקט';
 
 function jsonResponse(status, body) {
   return {
