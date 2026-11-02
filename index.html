@@ -1408,9 +1408,9 @@
                 document.getElementById('success-invoice-date').textContent = formatInvoiceDate(uploadedInvoiceDate);
                 document.getElementById('success-folder-path').textContent =
                     `הקובץ נשמר בתיקייה ${result.folderServerRelativeUrl || projectFolderPath}.`;
-                const approvalLink = document.getElementById('open-approval-screen');
+               /* const approvalLink = document.getElementById('open-approval-screen');
                 approvalLink.hidden = false;
-                approvalLink.href = `/approval.html?itemId=${encodeURIComponent(result.itemId)}`;
+                approvalLink.href = `/approval.html?itemId=${encodeURIComponent(result.itemId)}`;*/
                 invoiceStatus.textContent = '';
                 invoiceStatus.classList.add('is-success');
                 showUploadState('success');
