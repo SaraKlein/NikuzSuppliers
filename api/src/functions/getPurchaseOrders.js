@@ -114,8 +114,11 @@ async function getColumns(siteId, listId, accessToken) {
   return result.value;
 }
 
-async function getItems(siteId, listId, selectFields, accessToken, operation) {
+async function getItems(siteId, listId, selectFields, accessToken, operation, selectItemFields = []) {
   let url = new URL(`${graphBaseUrl}/sites/${siteId}/lists/${listId}/items`);
+  if (selectItemFields.length) {
+    url.searchParams.set('$select', ['id', ...selectItemFields].join(','));
+  }
   url.searchParams.set('$expand', `fields($select=${selectFields.join(',')})`);
   url.searchParams.set('$top', '200');
   const items = [];
@@ -310,7 +313,8 @@ app.http('getPurchaseOrders', {
           ordersList.id,
           ['Title', 'SupplierText', 'money', 'sumOfInvoice', `${projectColumn.name}LookupId`],
           accessToken,
-          'purchase order lookup'
+          'purchase order lookup',
+          ['createdBy']
         ),
         getItems(
           site.id,
@@ -342,6 +346,9 @@ app.http('getPurchaseOrders', {
           return {
             id: String(order.id),
             title: typeof fields.Title === 'string' ? fields.Title : '',
+            initiatorName: typeof order.createdBy?.user?.displayName === 'string'
+              ? order.createdBy.user.displayName
+              : '',
             projectId,
             projectTitle: project ? project.title : '',
             projectFolderUrl: project ? project.projectFolderUrl : '',

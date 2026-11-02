@@ -365,6 +365,17 @@
             line-height: 1.7;
         }
 
+        .upload-approval-message {
+            margin: 18px auto 0;
+            padding: 14px 18px;
+            border: 1px solid #c6e3f1;
+            border-radius: 8px;
+            background: #f2f9fc;
+            color: #15547c;
+            font-size: 16px;
+            line-height: 1.8;
+        }
+
         .upload-state-detail {
             margin: 18px 0 26px;
             color: #657784;
@@ -768,6 +779,10 @@
                 <div class="upload-success-icon" aria-hidden="true">✓</div>
                 <h2>החשבונית התקבלה בהצלחה</h2>
                 <p class="upload-state-subtitle">החשבונית והקבצים הנוספים נבדקו ונשמרו במערכת.</p>
+                <p class="upload-approval-message">
+                    החשבונית נשלחת ל<strong id="success-initiator">יוצר ההזמנה</strong> לאישור.
+                    במקרה של דחייה, יישלח מייל לכתובת <bdi id="success-supplier-email" dir="ltr">—</bdi>.
+                </p>
                 <div class="upload-summary">
                     <div class="upload-summary-item">
                         <span>מספר חשבונית / אסמכתא</span>
@@ -1023,6 +1038,7 @@
                         order
                         && typeof order.id === 'string'
                         && typeof order.title === 'string'
+                        && typeof order.initiatorName === 'string'
                         && typeof order.projectId === 'string'
                         && typeof order.projectTitle === 'string'
                         && typeof order.projectFolderUrl === 'string'
@@ -1096,6 +1112,14 @@
             }
             const [year, month, day] = value.split('-');
             return year && month && day ? `${day}.${month}.${year}` : value;
+        }
+
+        function updateUploadApprovalMessage() {
+            const selectedOrder = purchaseOrders.get(purchaseOrderSelect.value);
+            document.getElementById('success-initiator').textContent =
+                selectedOrder?.initiatorName || 'יוצר ההזמנה';
+            document.getElementById('success-supplier-email').textContent =
+                activeSupplier?.supplierEmail || document.getElementById('verified-email').value || '—';
         }
 
         function resetInvoiceFormForAnotherInvoice() {
@@ -1476,6 +1500,7 @@
 
                 document.getElementById('success-invoice-number').textContent = uploadedInvoiceNumber;
                 document.getElementById('success-invoice-date').textContent = formatInvoiceDate(uploadedInvoiceDate);
+                updateUploadApprovalMessage();
                 document.getElementById('success-folder-path').textContent =
                     `הקובץ נשמר בתיקייה ${result.folderServerRelativeUrl || projectFolderPath}.`;
                /* const approvalLink = document.getElementById('open-approval-screen');
@@ -1524,6 +1549,7 @@
                 if (uploadedSuccessfully) {
                     document.getElementById('success-invoice-number').textContent = uploadedInvoiceNumber;
                     document.getElementById('success-invoice-date').textContent = formatInvoiceDate(uploadedInvoiceDate);
+                    updateUploadApprovalMessage();
                     document.getElementById('success-folder-path').textContent =
                         `החשבונית אומתה כקיימת במערכת בתיקייה ${projectFolderPath}.`;
                     invoiceStatus.textContent = '';
