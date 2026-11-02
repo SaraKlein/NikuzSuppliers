@@ -68,17 +68,20 @@
           <form id="decision-form">
             <h2>פרטי החשבונית</h2>
             <div class="details" id="details"></div>
-            <fieldset>
-              <legend>החלטה</legend>
-              <div class="choices">
-                <label class="choice"><input type="radio" name="status" value="approve" required> לאשר</label>
-                <label class="choice"><input type="radio" name="status" value="reject" required> לדחות</label>
-              </div>
-            </fieldset>
-            <label id="comments-label" for="comments" hidden>הערה — נדרשת בדחייה</label>
-            <textarea id="comments" name="comments" hidden maxlength="10000"></textarea>
-            <div class="actions"><button type="submit" id="submit">שליחת החלטה</button></div>
-            <p id="notice" class="notice" role="status" aria-live="polite"></p>
+            <p id="existing-decision" class="notice success" role="status" hidden></p>
+            <div id="decision-controls">
+              <fieldset>
+                <legend>החלטה</legend>
+                <div class="choices">
+                  <label class="choice"><input type="radio" name="status" value="approve" required> לאשר</label>
+                  <label class="choice"><input type="radio" name="status" value="reject" required> לדחות</label>
+                </div>
+              </fieldset>
+              <label id="comments-label" for="comments" hidden>הערה — נדרשת בדחייה</label>
+              <textarea id="comments" name="comments" hidden maxlength="10000"></textarea>
+              <div class="actions"><button type="submit" id="submit">שליחת החלטה</button></div>
+              <p id="notice" class="notice" role="status" aria-live="polite"></p>
+            </div>
           </form>
         </div>
       </div>
@@ -97,6 +100,8 @@
     const commentsLabel = document.getElementById('comments-label');
     const submitButton = document.getElementById('submit');
     const notice = document.getElementById('notice');
+    const decisionControls = document.getElementById('decision-controls');
+    const existingDecision = document.getElementById('existing-decision');
     let submitted = false;
 
     function showLoadError(message) {
@@ -141,6 +146,22 @@
       });
     }
 
+    function showExistingDecision(status) {
+      const normalizedStatus = String(status || '').trim().toLowerCase();
+      const approvedStatuses = ['approve', 'approved', 'מאושר', 'מאושרת'];
+      const rejectedStatuses = ['reject', 'rejected', 'נדחה', 'נדחתה'];
+      const message = approvedStatuses.includes(normalizedStatus)
+        ? 'החשבונית כבר אושרה.'
+        : rejectedStatuses.includes(normalizedStatus)
+          ? 'החשבונית כבר נדחתה.'
+          : '';
+      if (!message) return;
+
+      decisionControls.hidden = true;
+      existingDecision.textContent = message;
+      existingDecision.hidden = false;
+    }
+
     function updateCommentsVisibility() {
       const rejection = statusInputs.some((input) => input.checked && input.value === 'reject');
       comments.hidden = !rejection;
@@ -163,6 +184,7 @@
         if (!response.ok) throw new Error(body.error || 'לא ניתן לטעון את החשבונית.');
 
         renderDetails(body.fields);
+        showExistingDecision(body.fields.status);
         if (body.fileUrl) {
           document.getElementById('open-file').href = body.fileUrl;
           const preview = document.createElement('iframe');
