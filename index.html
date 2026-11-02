@@ -259,6 +259,34 @@
             font-size: 15px;
         }
 
+        .notice.is-loading {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-height: 54px;
+            border-radius: 8px;
+        }
+
+        .notice-loader {
+            width: 22px;
+            height: 22px;
+            flex: 0 0 22px;
+            border: 3px solid #c6e3f1;
+            border-top-color: #0873a8;
+            border-radius: 50%;
+            animation: notice-spin 800ms linear infinite;
+        }
+
+        @keyframes notice-spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .notice-loader {
+                animation-duration: 2.5s;
+            }
+        }
+
         .upload-state {
             min-height: 570px;
             display: grid;
@@ -699,6 +727,7 @@
         </header>
 
         <div class="notice" id="purchase-order-notice" role="status" aria-live="polite">
+            <span class="notice-loader" id="purchase-order-loader" aria-hidden="true" hidden></span>
             <span id="purchase-order-notice-text">פרטי הספק אומתו.</span>
             <button type="button" id="purchase-orders-retry" hidden>טעינה מחדש</button>
         </div>
@@ -870,6 +899,8 @@
         const uploadSuccess = document.getElementById('upload-success');
         const uploadError = document.getElementById('upload-error');
         const purchaseOrderSelect = document.getElementById('purchase-order');
+        const purchaseOrderNotice = document.getElementById('purchase-order-notice');
+        const purchaseOrderLoader = document.getElementById('purchase-order-loader');
         const purchaseOrderNoticeText = document.getElementById('purchase-order-notice-text');
         const purchaseOrdersRetryButton = document.getElementById('purchase-orders-retry');
         const purchaseOrders = new Map();
@@ -938,7 +969,9 @@
             ordersLoadFailed = false;
             purchaseOrderSelect.disabled = true;
             purchaseOrdersRetryButton.hidden = true;
-            purchaseOrderNoticeText.textContent = 'פרטי הספק אומתו. טוען הזמנות רכש וחשבוניות קודמות...';
+            purchaseOrderNotice.classList.add('is-loading');
+            purchaseOrderLoader.hidden = false;
+            purchaseOrderNoticeText.textContent = 'טוען הזמנות רכש וחשבוניות קודמות...';
             invoiceStatus.textContent = '';
 
             try {
@@ -976,6 +1009,8 @@
                     return;
                 }
 
+                purchaseOrderNotice.classList.remove('is-loading');
+                purchaseOrderLoader.hidden = true;
                 purchaseOrders.clear();
                 purchaseOrderSelect.replaceChildren(new Option('בחירת הזמנת רכש', ''));
                 for (const order of result.orders) {
@@ -993,6 +1028,8 @@
                     return;
                 }
                 console.error('Could not load purchase orders and invoice history.', error);
+                purchaseOrderNotice.classList.remove('is-loading');
+                purchaseOrderLoader.hidden = true;
                 ordersLoadFailed = true;
                 purchaseOrderNoticeText.textContent =
                     'לא ניתן לטעון כרגע את הזמנות הרכש והחשבוניות הקודמות של הספק.';
@@ -1484,6 +1521,8 @@
             purchaseOrderSelect.replaceChildren(new Option('בחירת הזמנת רכש', ''));
             purchaseOrderSelect.disabled = false;
             purchaseOrderNoticeText.textContent = 'פרטי הספק אומתו.';
+            purchaseOrderNotice.classList.remove('is-loading');
+            purchaseOrderLoader.hidden = true;
             purchaseOrdersRetryButton.hidden = true;
             renderPurchaseOrderDetails();
             invoiceStatus.textContent = '';
