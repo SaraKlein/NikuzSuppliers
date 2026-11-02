@@ -267,7 +267,7 @@
             border-radius: 8px;
         }
 
-        .notice-loader {
+        .loading-spinner {
             width: 22px;
             height: 22px;
             flex: 0 0 22px;
@@ -277,12 +277,29 @@
             animation: notice-spin 800ms linear infinite;
         }
 
+        .purchase-order-loading {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            grid-column: 2;
+            margin: -6px 0 0;
+            color: #15547c;
+            font-size: 13px;
+        }
+
+        .purchase-order-loading .loading-spinner {
+            width: 17px;
+            height: 17px;
+            flex-basis: 17px;
+            border-width: 2px;
+        }
+
         @keyframes notice-spin {
             to { transform: rotate(360deg); }
         }
 
         @media (prefers-reduced-motion: reduce) {
-            .notice-loader {
+            .loading-spinner {
                 animation-duration: 2.5s;
             }
         }
@@ -665,6 +682,11 @@
                 gap: 7px;
             }
 
+            .purchase-order-loading {
+                grid-column: 1;
+                margin-top: 0;
+            }
+
             .invoice-field {
                 grid-template-columns: 1fr;
                 gap: 6px;
@@ -727,7 +749,7 @@
         </header>
 
         <div class="notice" id="purchase-order-notice" role="status" aria-live="polite">
-            <span class="notice-loader" id="purchase-order-loader" aria-hidden="true" hidden></span>
+            <span class="loading-spinner" id="purchase-order-loader" aria-hidden="true" hidden></span>
             <span id="purchase-order-notice-text">פרטי הספק אומתו.</span>
             <button type="button" id="purchase-orders-retry" hidden>טעינה מחדש</button>
         </div>
@@ -807,6 +829,10 @@
                         <select id="purchase-order" name="purchaseOrder" required>
                             <option value="">בחירת הזמנת רכש</option>
                         </select>
+                        <span class="purchase-order-loading" id="purchase-order-loading" role="status" aria-live="polite" hidden>
+                            <span class="loading-spinner" aria-hidden="true"></span>
+                            טוען הזמנות רכש...
+                        </span>
                     </div>
                     <div class="purchase-summary" aria-label="פרטי הזמנת רכש">
                         <div class="purchase-detail"><span>מזהה הזמנה</span><strong id="purchase-order-id">—</strong>
@@ -901,6 +927,7 @@
         const purchaseOrderSelect = document.getElementById('purchase-order');
         const purchaseOrderNotice = document.getElementById('purchase-order-notice');
         const purchaseOrderLoader = document.getElementById('purchase-order-loader');
+        const purchaseOrderLoading = document.getElementById('purchase-order-loading');
         const purchaseOrderNoticeText = document.getElementById('purchase-order-notice-text');
         const purchaseOrdersRetryButton = document.getElementById('purchase-orders-retry');
         const purchaseOrders = new Map();
@@ -968,6 +995,8 @@
             ordersLoading = true;
             ordersLoadFailed = false;
             purchaseOrderSelect.disabled = true;
+            purchaseOrderSelect.setAttribute('aria-busy', 'true');
+            purchaseOrderLoading.hidden = false;
             purchaseOrdersRetryButton.hidden = true;
             purchaseOrderNotice.classList.add('is-loading');
             purchaseOrderLoader.hidden = false;
@@ -1011,6 +1040,8 @@
 
                 purchaseOrderNotice.classList.remove('is-loading');
                 purchaseOrderLoader.hidden = true;
+                purchaseOrderLoading.hidden = true;
+                purchaseOrderSelect.removeAttribute('aria-busy');
                 purchaseOrders.clear();
                 purchaseOrderSelect.replaceChildren(new Option('בחירת הזמנת רכש', ''));
                 for (const order of result.orders) {
@@ -1030,6 +1061,8 @@
                 console.error('Could not load purchase orders and invoice history.', error);
                 purchaseOrderNotice.classList.remove('is-loading');
                 purchaseOrderLoader.hidden = true;
+                purchaseOrderLoading.hidden = true;
+                purchaseOrderSelect.removeAttribute('aria-busy');
                 ordersLoadFailed = true;
                 purchaseOrderNoticeText.textContent =
                     'לא ניתן לטעון כרגע את הזמנות הרכש והחשבוניות הקודמות של הספק.';
@@ -1523,6 +1556,8 @@
             purchaseOrderNoticeText.textContent = 'פרטי הספק אומתו.';
             purchaseOrderNotice.classList.remove('is-loading');
             purchaseOrderLoader.hidden = true;
+            purchaseOrderLoading.hidden = true;
+            purchaseOrderSelect.removeAttribute('aria-busy');
             purchaseOrdersRetryButton.hidden = true;
             renderPurchaseOrderDetails();
             invoiceStatus.textContent = '';
