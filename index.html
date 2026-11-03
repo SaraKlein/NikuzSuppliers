@@ -446,6 +446,26 @@
             color: #315873;
             line-height: 1.7;
             white-space: pre-line;
+            text-align: start;
+            overflow-wrap: anywhere;
+        }
+
+        .upload-error-details-toggle {
+            min-height: 44px;
+            margin-top: 20px;
+            padding: 0 18px;
+            border: 1px solid #cbd6de;
+            border-radius: 9px;
+            background: #fff;
+            color: #315873;
+            cursor: pointer;
+            font: inherit;
+            font-weight: 700;
+        }
+
+        .upload-error-details-toggle:focus-visible {
+            outline: 3px solid #a8d7e9;
+            outline-offset: 3px;
         }
 
         @keyframes upload-spin {
@@ -769,7 +789,7 @@
             <div class="upload-state-card">
                 <div class="upload-progress-ring" aria-hidden="true"></div>
                 <h2>החשבונית שלך נשלחת...</h2>
-                <p class="upload-state-subtitle">אנחנו מעלים את הקובץ והקבצים הנוספים ומעדכנים את מערכת SharePoint.</p>
+                <p class="upload-state-subtitle">אנו מעלים את הקובץ והקבצים הנוספים ומעדכנים את מערכת השכר.</p>
                 <p class="upload-state-detail">נא להמתין ולא לסגור את החלון.<br>אין צורך ללחוץ על הכפתור שוב.</p>
             </div>
         </section>
@@ -806,9 +826,17 @@
             <div class="upload-state-card">
                 <div class="upload-error-icon" aria-hidden="true">!</div>
                 <h2>שליחת החשבונית נכשלה</h2>
-                <p class="upload-state-subtitle">החשבונית לא נשמרה במערכת.</p>
+                <p class="upload-state-subtitle">לא ניתן להשלים את השליחה. אפשר להציג את פרטי השגיאה לקבלת מידע נוסף.</p>
                 <!--<p class="upload-state-detail">ניתן לחזור לטופס ולנסות שוב. הקבצים והפרטים נשמרו למילוי חוזר.</p>-->
-                <div class="upload-error-message" id="upload-error-message"></div>
+                <button
+                    type="button"
+                    class="upload-error-details-toggle"
+                    id="toggle-upload-error-details"
+                    aria-expanded="false"
+                    aria-controls="upload-error-message"
+                    hidden
+                >הצגת פרטי השגיאה</button>
+                <div class="upload-error-message" id="upload-error-message" hidden></div>
                 <div class="upload-state-actions">
                     <button type="button" class="secondary-button" id="return-to-invoice">חזרה לטופס</button>
                     <button type="button" class="submit-button" id="retry-upload">ניסיון שליחה חוזר</button>
@@ -1439,13 +1467,28 @@
                     control.disabled = false;
                 });
                 submitButton.textContent = 'העלאת חשבונית';
-                document.getElementById('upload-error-message').textContent = [
+                const errorDetails = document.getElementById('upload-error-message');
+                const detailsButton = document.getElementById('toggle-upload-error-details');
+                errorDetails.textContent = [
                     message,
                     details,
                     `קוד שגיאה: ${errorCode}`
                 ].filter(Boolean).join('\n');
+                errorDetails.hidden = true;
+                detailsButton.hidden = !errorDetails.textContent;
+                detailsButton.setAttribute('aria-expanded', 'false');
+                detailsButton.textContent = 'הצגת פרטי השגיאה';
                 showUploadState('error');
             };
+
+            document.getElementById('toggle-upload-error-details').addEventListener('click', (event) => {
+                const button = event.currentTarget;
+                const errorDetails = document.getElementById('upload-error-message');
+                const expanded = button.getAttribute('aria-expanded') === 'true';
+                errorDetails.hidden = expanded;
+                button.setAttribute('aria-expanded', String(!expanded));
+                button.textContent = expanded ? 'הצגת פרטי השגיאה' : 'הסתרת פרטי השגיאה';
+            });
 
             try {
                 const invoiceFile = invoiceForm.elements.invoiceFile.files[0];

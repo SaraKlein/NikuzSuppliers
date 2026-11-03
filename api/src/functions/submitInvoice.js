@@ -1058,7 +1058,7 @@ app.http('submitInvoice', {
         currentStep = 'בדיקת חשבונית כפולה ברשימת המשימות';
         return failureResponse(
           409,
-          `חשבונית מספר ${invoiceValues.invoiceNumber} כבר הוגשה עבור ספק ${invoiceValues.supplierName}.\nאי אפשר להעלות את החשבונית.`
+          `חשבונית מספר ${invoiceValues.invoiceNumber} כבר הוגשה עבור ספק ${invoiceValues.supplierName}.\nאין אפשרות להעלות חשבונית שכבר הוגשה בעבר.`
         );
       }
 
