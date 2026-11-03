@@ -281,6 +281,9 @@ export default class InvoiceApprovalWebPart extends BaseClientSideWebPart<IInvoi
     this._element('decision-actions').hidden = true;
     const decisionMessage = this._element<HTMLParagraphElement>('existing-decision');
     decisionMessage.textContent = message;
+    decisionMessage.classList.add(
+      approved.indexOf(normalized) !== -1 ? styles.decisionApproved : styles.decisionRejected
+    );
     decisionMessage.hidden = false;
   }
 

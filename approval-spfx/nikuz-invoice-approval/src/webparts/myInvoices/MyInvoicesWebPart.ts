@@ -190,6 +190,12 @@ export default class MyInvoicesWebPart extends BaseClientSideWebPart<IMyInvoices
       const status = document.createElement('span');
       status.className = styles.status;
       status.textContent = this._formatStatus(invoice.ApprovalStatus);
+      const normalizedStatus = (invoice.ApprovalStatus || '').trim().toLowerCase();
+      if (['approve', 'approved', 'מאושר', 'מאושרת'].indexOf(normalizedStatus) !== -1) {
+        status.classList.add(styles.statusApproved);
+      } else if (['reject', 'rejected', 'נדחה', 'נדחתה'].indexOf(normalizedStatus) !== -1) {
+        status.classList.add(styles.statusRejected);
+      }
       status.setAttribute('aria-label', `סטטוס: ${status.textContent}`);
       const statusActions = document.createElement('div');
       statusActions.className = styles.statusActions;

@@ -99,6 +99,16 @@
   font-size: 13px;
 }
 
+.statusApproved {
+  background: #e8f5e9;
+  color: #1b5e20;
+}
+
+.statusRejected {
+  background: #ffebee;
+  color: #b71c1c;
+}
+
 .statusActions {
   display: flex;
   align-items: center;

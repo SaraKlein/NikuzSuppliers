@@ -181,10 +181,15 @@
   display: none;
 }
 
-.decisionMessage,
-.success {
+.success,
+.decisionApproved {
   background: #edf7f5;
   color: #176a54;
+}
+
+.decisionRejected {
+  background: #ffebee;
+  color: #b71c1c;
 }
 
 @media (max-width: 850px) {
