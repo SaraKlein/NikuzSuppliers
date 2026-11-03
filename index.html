@@ -826,17 +826,17 @@
             <div class="upload-state-card">
                 <div class="upload-error-icon" aria-hidden="true">!</div>
                 <h2>שליחת החשבונית נכשלה</h2>
-                <p class="upload-state-subtitle">לא ניתן להשלים את השליחה. אפשר להציג את פרטי השגיאה לקבלת מידע נוסף.</p>
+                <p class="upload-state-subtitle" id="upload-error-summary">לא ניתן להשלים את השליחה.</p>
                 <!--<p class="upload-state-detail">ניתן לחזור לטופס ולנסות שוב. הקבצים והפרטים נשמרו למילוי חוזר.</p>-->
                 <button
                     type="button"
                     class="upload-error-details-toggle"
                     id="toggle-upload-error-details"
                     aria-expanded="false"
-                    aria-controls="upload-error-message"
+                    aria-controls="upload-error-details"
                     hidden
                 >הצגת פרטי השגיאה</button>
-                <div class="upload-error-message" id="upload-error-message" hidden></div>
+                <div class="upload-error-message" id="upload-error-details" hidden></div>
                 <div class="upload-state-actions">
                     <button type="button" class="secondary-button" id="return-to-invoice">חזרה לטופס</button>
                     <button type="button" class="submit-button" id="retry-upload">ניסיון שליחה חוזר</button>
@@ -967,6 +967,9 @@
         const uploadProcessing = document.getElementById('upload-processing');
         const uploadSuccess = document.getElementById('upload-success');
         const uploadError = document.getElementById('upload-error');
+        const uploadErrorSummary = document.getElementById('upload-error-summary');
+        const uploadErrorDetails = document.getElementById('upload-error-details');
+        const uploadErrorDetailsButton = document.getElementById('toggle-upload-error-details');
         const purchaseOrderSelect = document.getElementById('purchase-order');
         const purchaseOrderNotice = document.getElementById('purchase-order-notice');
         const purchaseOrderLoader = document.getElementById('purchase-order-loader');
@@ -978,6 +981,15 @@
         let ordersLoading = false;
         let ordersLoadFailed = false;
         let ordersRequestId = 0;
+
+        uploadErrorDetailsButton.addEventListener('click', () => {
+            const expanded = uploadErrorDetailsButton.getAttribute('aria-expanded') === 'true';
+            uploadErrorDetails.hidden = expanded;
+            uploadErrorDetailsButton.setAttribute('aria-expanded', String(!expanded));
+            uploadErrorDetailsButton.textContent = expanded
+                ? 'הצגת פרטי השגיאה'
+                : 'הסתרת פרטי השגיאה';
+        });
         let activeSupplier = null;
         const creditInvoiceField = document.getElementById('credit-invoice-field');
         const creditInvoiceSelect = document.getElementById('credit-invoice-number');
@@ -1467,28 +1479,17 @@
                     control.disabled = false;
                 });
                 submitButton.textContent = 'העלאת חשבונית';
-                const errorDetails = document.getElementById('upload-error-message');
-                const detailsButton = document.getElementById('toggle-upload-error-details');
-                errorDetails.textContent = [
-                    message,
+                uploadErrorSummary.textContent = message;
+                uploadErrorDetails.textContent = [
                     details,
                     `קוד שגיאה: ${errorCode}`
                 ].filter(Boolean).join('\n');
-                errorDetails.hidden = true;
-                detailsButton.hidden = !errorDetails.textContent;
-                detailsButton.setAttribute('aria-expanded', 'false');
-                detailsButton.textContent = 'הצגת פרטי השגיאה';
+                uploadErrorDetails.hidden = true;
+                uploadErrorDetailsButton.hidden = !uploadErrorDetails.textContent;
+                uploadErrorDetailsButton.setAttribute('aria-expanded', 'false');
+                uploadErrorDetailsButton.textContent = 'הצגת פרטי השגיאה';
                 showUploadState('error');
             };
-
-            document.getElementById('toggle-upload-error-details').addEventListener('click', (event) => {
-                const button = event.currentTarget;
-                const errorDetails = document.getElementById('upload-error-message');
-                const expanded = button.getAttribute('aria-expanded') === 'true';
-                errorDetails.hidden = expanded;
-                button.setAttribute('aria-expanded', String(!expanded));
-                button.textContent = expanded ? 'הצגת פרטי השגיאה' : 'הסתרת פרטי השגיאה';
-            });
 
             try {
                 const invoiceFile = invoiceForm.elements.invoiceFile.files[0];
