@@ -1,0 +1,19 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx/client-side-web-part-manifest.schema.json",
+  "id": "629fe198-1f9c-4490-9881-cc2b8dd00224",
+  "alias": "MyInvoicesWebPart",
+  "componentType": "WebPart",
+  "version": "*",
+  "manifestVersion": 2,
+  "requiresCustomScript": false,
+  "supportedHosts": ["SharePointWebPart", "SharePointFullPage"],
+  "supportsThemeVariants": true,
+  "preconfiguredEntries": [{
+    "groupId": "5c03119e-3074-46fd-976b-c60198311f70",
+    "group": { "default": "Nikuz Suppliers" },
+    "title": { "default": "החשבוניות שלי" },
+    "description": { "default": "Invoices linked to purchase orders you initiated" },
+    "officeFabricIconFontName": "DocumentSet",
+    "properties": {}
+  }]
+}

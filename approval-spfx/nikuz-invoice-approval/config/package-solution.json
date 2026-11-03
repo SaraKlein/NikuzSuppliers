@@ -1,0 +1,39 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
+  "solution": {
+    "name": "nikuz-invoice-approval-client-side-solution",
+    "id": "4c39df7a-506c-4d23-adc5-46c7277a7f16",
+    "version": "1.0.0.0",
+    "includeClientSideAssets": true,
+    "skipFeatureDeployment": true,
+    "developer": {
+      "name": "",
+      "websiteUrl": "",
+      "privacyUrl": "",
+      "termsOfUseUrl": "",
+      "mpnId": "Undefined-1.24.1"
+    },
+    "metadata": {
+      "shortDescription": {
+        "default": "nikuz-invoice-approval description"
+      },
+      "longDescription": {
+        "default": "nikuz-invoice-approval description"
+      },
+      "screenshotPaths": [],
+      "videoUrl": "",
+      "categories": []
+    },
+    "features": [
+      {
+        "title": "nikuz-invoice-approval Feature",
+        "description": "The feature that activates elements of the nikuz-invoice-approval solution.",
+        "id": "b84b6d01-5ead-4a52-b3b9-c6b3e6830723",
+        "version": "1.0.0.0"
+      }
+    ]
+  },
+  "paths": {
+    "zippedPackage": "solution/nikuz-invoice-approval.sppkg"
+  }
+}

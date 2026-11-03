@@ -1,0 +1,22 @@
+{
+  "@microsoft/generator-sharepoint": {
+    "whichFolder": "subdir",
+    "solutionName": "nikuz-invoice-approval",
+    "environment": "spo",
+    "packageManager": "npm",
+    "useGulp": false,
+    "componentType": "webpart",
+    "template": "none",
+    "componentName": "InvoiceApproval",
+    "componentDescription": "SharePoint-authorized invoice approvals",
+    "plusBeta": false,
+    "isCreatingSolution": true,
+    "nodeVersion": "24.21.0",
+    "sdksVersions": {},
+    "version": "1.24.1",
+    "libraryName": "nikuz-invoice-approval",
+    "libraryId": "4c39df7a-506c-4d23-adc5-46c7277a7f16",
+    "solutionShortDescription": "nikuz-invoice-approval description",
+    "skipFeatureDeployment": true
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/config.2.0.schema.json",
+  "version": "2.0",
+  "bundles": {
+    "invoice-approval-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/invoiceApproval/InvoiceApprovalWebPart.js",
+          "manifest": "./src/webparts/invoiceApproval/InvoiceApprovalWebPart.manifest.json"
+        }
+      ]
+    },
+    "my-invoices-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/myInvoices/MyInvoicesWebPart.js",
+          "manifest": "./src/webparts/myInvoices/MyInvoicesWebPart.manifest.json"
+        }
+      ]
+    }
+  },
+  "externals": {},
+  "localizedResources": {
+    "InvoiceApprovalWebPartStrings": "lib/webparts/invoiceApproval/loc/{locale}.js"
+  }
+}
