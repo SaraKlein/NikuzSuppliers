@@ -789,7 +789,7 @@
             <div class="upload-state-card">
                 <div class="upload-progress-ring" aria-hidden="true"></div>
                 <h2>החשבונית שלך נשלחת...</h2>
-                <p class="upload-state-subtitle">אנו מעלים את הקובץ והקבצים הנוספים ומעדכנים את מערכת השכר.</p>
+                <p class="upload-state-subtitle">אנו מעלים את הקובץ ומעדכנים את מערכת השכר.</p>
                 <p class="upload-state-detail">נא להמתין ולא לסגור את החלון.<br>אין צורך ללחוץ על הכפתור שוב.</p>
             </div>
         </section>
@@ -798,7 +798,7 @@
             <div class="upload-state-card">
                 <div class="upload-success-icon" aria-hidden="true">✓</div>
                 <h2>החשבונית התקבלה בהצלחה</h2>
-                <p class="upload-state-subtitle">החשבונית והקבצים הנוספים נבדקו ונשמרו במערכת.</p>
+                <p class="upload-state-subtitle">החשבונית ופרטי החשבונית נבדקו ונשמרו במערכת.</p>
                 <p class="upload-approval-message">
                     החשבונית נשלחת ל<strong id="success-initiator">יוצר ההזמנה</strong> לאישור.
                     במקרה של דחייה, יישלח מייל לכתובת <bdi id="success-supplier-email" dir="ltr">—</bdi>.
@@ -1545,8 +1545,8 @@
                 document.getElementById('success-invoice-number').textContent = uploadedInvoiceNumber;
                 document.getElementById('success-invoice-date').textContent = formatInvoiceDate(uploadedInvoiceDate);
                 updateUploadApprovalMessage();
-                document.getElementById('success-folder-path').textContent =
-                    `הקובץ נשמר בתיקייה ${result.folderServerRelativeUrl || projectFolderPath}.`;
+                document.getElementById('success-folder-path').textContent = '';
+                    //`הקובץ נשמר בתיקייה ${result.folderServerRelativeUrl || projectFolderPath}.`;
                /* const approvalLink = document.getElementById('open-approval-screen');
                 approvalLink.hidden = false;
                 approvalLink.href = `/approval.html?itemId=${encodeURIComponent(result.itemId)}`;*/
