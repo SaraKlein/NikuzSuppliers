@@ -86,15 +86,17 @@ on that list:
 | `InvoiceAmount` | Currency | Total including VAT |
 | `SupplierName` | Single line of text | Verified supplier name |
 | `DocumentType` | Single line of text | Invoice document type |
-| `ApprovalStatus` | Choice | `חדש` |
+| `ApprovalStatus` | Choice | `חדש`, `approve`, and `reject` |
 | `DecisionComment` | Multiple lines of text, plain text | Empty until an approver adds a comment |
 
 The `Initiator` person field must allow a single selection; the API writes it
 through its Graph `InitiatorLookupId` field. Index `InitiatorEmail` (or use an
-indexed `Initiator` lookup for queries) for the My Invoices screen. The API
-app registration needs write access to the Projects site to create tracking
-items. Graph must return the purchase order creator's email in its `createdBy`
-identity for the required `InitiatorEmail` field.
+indexed `Initiator` lookup for queries) and `InvoiceItemId` for the My Invoices
+and approval screens. The approval screen updates `ApprovalStatus` to `approve`
+or `reject` and stores the approver's note in `DecisionComment`. The API app
+registration needs write access to the Projects site to create tracking items.
+Graph must return the purchase order creator's email in its `createdBy` identity
+for the required `InitiatorEmail` field.
 
 Configure these application settings for the Azure Static Web App API:
 

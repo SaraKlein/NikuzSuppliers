@@ -40,6 +40,16 @@ interface IInvoiceItem {
   supplier: ILookup;
 }
 
+interface IUploadedInvoiceItem {
+  Id: number;
+  InvoiceItemId: number;
+}
+
+interface IUploadedInvoiceCollection {
+  results?: IUploadedInvoiceItem[];
+  value?: IUploadedInvoiceItem[];
+}
+
 interface IODataVerboseResponse<T> {
   d: T;
 }
@@ -52,6 +62,7 @@ interface IOrderItem {
 
 export default class InvoiceApprovalWebPart extends BaseClientSideWebPart<IInvoiceApprovalWebPartProps> {
   private _invoice?: IInvoiceItem;
+  private _uploadedInvoiceItemId?: number;
   private _submitting: boolean = false;
 
   public render(): void {
@@ -189,6 +200,7 @@ export default class InvoiceApprovalWebPart extends BaseClientSideWebPart<IInvoi
       );
       console.log('Fetching authorized invoice details from SharePoint:', invoiceUrl);
       const invoice = await this._getJson<IInvoiceItem>(invoiceUrl);
+      this._uploadedInvoiceItemId = await this._getUploadedInvoiceItemId(invoice.Id);
 
       this._invoice = invoice;
       this._renderInvoice(invoice);
@@ -274,13 +286,23 @@ export default class InvoiceApprovalWebPart extends BaseClientSideWebPart<IInvoi
 
   private async _submitDecision(): Promise<void> {
     console.log("submit decision");
-    if (this._submitting || !this._invoice) {
+    if (this._submitting) {
+      return;
+    }
+
+    if (!this._invoice) {
+      return;
+    }
+
+    const notice = this._element<HTMLParagraphElement>('decision-notice');
+    if (!this._uploadedInvoiceItemId) {
+      notice.textContent =
+        'לא נמצא פריט מעקב לחשבונית. לא ניתן לשמור את ההחלטה.';
       return;
     }
 
     const selected = this.domElement.querySelector<HTMLInputElement>('input[name="decision"]:checked');
     const comments = this._element<HTMLTextAreaElement>('comments').value.trim();
-    const notice = this._element<HTMLParagraphElement>('decision-notice');
     if (!selected || (selected.value !== 'approve' && selected.value !== 'reject')) {
       notice.textContent = 'יש לבחור אישור או דחייה.';
       return;
@@ -297,6 +319,7 @@ export default class InvoiceApprovalWebPart extends BaseClientSideWebPart<IInvoi
     button.disabled = true;
     button.textContent = 'שולח החלטה...';
     notice.textContent = '';
+    let invoiceUpdated = false;
 
     try {
      /* const etag = this._invoice['@odata.etag'];
@@ -323,6 +346,29 @@ export default class InvoiceApprovalWebPart extends BaseClientSideWebPart<IInvoi
       if (!response.ok) {
         throw new Error(await this._responseError(response));
       }
+      invoiceUpdated = true;
+
+      const trackingResponse = await this.context.spHttpClient.post(
+        this._restUrl(
+          `lists/getbytitle('UploadedInvoices')/items(${this._uploadedInvoiceItemId})`
+        ),
+        SPHttpClient.configurations.v1,
+        {
+          headers: {
+            Accept: 'application/json;odata=nometadata',
+            'Content-Type': 'application/json;odata=nometadata',
+            'IF-MATCH': '*',
+            'X-HTTP-Method': 'MERGE'
+          },
+          body: JSON.stringify({
+            ApprovalStatus: decision,
+            DecisionComment: comments
+          })
+        }
+      );
+      if (!trackingResponse.ok) {
+        throw new Error(await this._responseError(trackingResponse));
+      }
 
       const message = decision === 'approve'
         ? 'החשבונית אושרה בהצלחה.'
@@ -343,13 +389,60 @@ export default class InvoiceApprovalWebPart extends BaseClientSideWebPart<IInvoi
       });
     } catch (error) {
       console.error('Could not save invoice decision.', error);
-      notice.textContent = error instanceof Error
-        ? error.message
-        : 'שליחת ההחלטה נכשלה.';
-      button.disabled = false;
-      button.textContent = 'שליחת החלטה';
-      this._submitting = false;
+      if (invoiceUpdated) {
+        notice.textContent =
+          `ההחלטה נשמרה בחשבונית, אך עדכון רשימת UploadedInvoices נכשל. ${error instanceof Error ? error.message : ''} פנו למנהל המערכת כדי לסנכרן את הרשומה.`;
+        this._updateDisplayedInvoiceStatus(decision);
+        this._element('decision-options').hidden = true;
+        this._element('comments-label').hidden = true;
+        this._element<HTMLTextAreaElement>('comments').hidden = true;
+        this._element('decision-actions').hidden = true;
+      } else {
+        notice.textContent = error instanceof Error
+          ? error.message
+          : 'שליחת ההחלטה נכשלה.';
+        button.disabled = false;
+        button.textContent = 'שליחת החלטה';
+        this._submitting = false;
+      }
     }
+  }
+
+  private _updateDisplayedInvoiceStatus(decision: string): void {
+    this._element('invoice-details').querySelectorAll('dt').forEach((term) => {
+      if (term.textContent === 'סטטוס נוכחי') {
+        const value = term.nextElementSibling;
+        if (value) {
+          value.textContent = decision;
+        }
+      }
+    });
+  }
+
+  private async _getUploadedInvoiceItemId(invoiceItemId: number): Promise<number> {
+    const url = new URL(
+      this._restUrl("lists/getbytitle('UploadedInvoices')/items")
+    );
+    url.searchParams.set('$select', 'Id,InvoiceItemId');
+    url.searchParams.set('$filter', `InvoiceItemId eq ${invoiceItemId}`);
+    const payload = await this._getJson<IUploadedInvoiceCollection>(url.toString());
+    const items = payload.results || payload.value;
+    if (!Array.isArray(items) || items.length !== 1) {
+      throw new Error(
+        'לא נמצא פריט מעקב יחיד עבור החשבונית ברשימת UploadedInvoices.'
+      );
+    }
+
+    const item = items[0];
+    if (
+      !Number.isSafeInteger(item.Id) ||
+      item.Id <= 0 ||
+      item.InvoiceItemId !== invoiceItemId
+    ) {
+      throw new Error('פריט המעקב של החשבונית אינו תקין.');
+    }
+
+    return item.Id;
   }
 
   private _restUrl(path: string): string {
