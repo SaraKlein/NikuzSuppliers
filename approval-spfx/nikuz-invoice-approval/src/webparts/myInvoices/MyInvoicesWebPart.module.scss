@@ -46,7 +46,7 @@
 
 .invoice {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(100px, 0.8fr)) auto;
+  grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(100px, 0.8fr)) auto;
   align-items: center;
   gap: 14px;
   padding: 16px;

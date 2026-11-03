@@ -22,6 +22,7 @@ interface IInvoiceFile {
 interface IInvoice {
   Id: number;
   Title?: string;
+  Created?: string;
   InvoiceNumber?: string;
   InvoiceDate?: string;
   InvoiceAmount?: string | number;
@@ -77,7 +78,7 @@ export default class MyInvoicesWebPart extends BaseClientSideWebPart<IMyInvoices
 
     const invoicesUrl = this._collectionUrl(
       'UploadedInvoices',
-      'Id,Title,InvoiceNumber,InvoiceDate,InvoiceAmount,InvoiceItemId,' +
+      'Id,Title,Created,InvoiceNumber,InvoiceDate,InvoiceAmount,InvoiceItemId,' +
       'PurchaseOrderTitle,SupplierName,DocumentType,ApprovalStatus',
       `InitiatorEmail eq '${currentUserEmail.replace(/'/g, "''")}'`
     );
@@ -104,8 +105,8 @@ export default class MyInvoicesWebPart extends BaseClientSideWebPart<IMyInvoices
     });
 
     invoices.sort((left, right) => {
-      const leftDate = left.InvoiceDate ? Date.parse(left.InvoiceDate) : 0;
-      const rightDate = right.InvoiceDate ? Date.parse(right.InvoiceDate) : 0;
+      const leftDate = left.Created ? Date.parse(left.Created) : 0;
+      const rightDate = right.Created ? Date.parse(right.Created) : 0;
       return rightDate - leftDate;
     });
 
@@ -184,7 +185,8 @@ export default class MyInvoicesWebPart extends BaseClientSideWebPart<IMyInvoices
         main,
         this._field('הזמנת רכש', invoice.PurchaseOrderTitle || '—'),
         this._field('תאריך', this._formatDate(invoice.InvoiceDate)),
-        this._field('סכום', this._formatAmount(invoice.InvoiceAmount))
+        this._field('סכום', this._formatAmount(invoice.InvoiceAmount)),
+        this._field('ספק', invoice.SupplierName || '—')
       );
 
       const status = document.createElement('span');
