@@ -694,7 +694,7 @@ function getInvoiceMetadata(invoiceValues, supplierId, orderId) {
     LinkedInvoiceNumber: invoiceValues.creditInvoiceNumber,
     _Comments: invoiceValues.supplierNotes,
     InvoiceDate: invoiceValues.invoiceDate,
-    CreatedBySupplierApp: true,
+    CreatedFromSupplierApp: true,
     InvoiceStatus: 'חדש',
     IsTaxInvoice: invoiceValues.documentType !== "חשבונית עסקה" ? true : false
   };
