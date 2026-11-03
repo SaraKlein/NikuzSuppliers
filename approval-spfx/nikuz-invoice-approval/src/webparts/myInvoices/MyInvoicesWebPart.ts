@@ -4,16 +4,15 @@ import { SPHttpClient } from '@microsoft/sp-http';
 
 import styles from './MyInvoicesWebPart.module.scss';
 
-interface IMyInvoicesWebPartProps {}
+interface IMyInvoicesWebPartProps { }
 
-interface IOrder {
-  Id: number;
-  Title?: string;
+interface ICurrentUser {
+  Email?: string;
 }
 
-interface ILookup {
+interface IInvoiceFileItem {
   Id: number;
-  Title?: string;
+  File?: IInvoiceFile;
 }
 
 interface IInvoiceFile {
@@ -25,12 +24,12 @@ interface IInvoice {
   Title?: string;
   InvoiceNumber?: string;
   InvoiceDate?: string;
-  invoiceSum?: string | number;
-  AllocationNumber?: string;
+  InvoiceAmount?: string | number;
+  InvoiceItemId?: number;
+  PurchaseOrderTitle?: string;
+  SupplierName?: string;
   DocumentType?: string;
-  InvoiceStatus?: string;
-  order0?: ILookup;
-  supplier?: ILookup;
+  ApprovalStatus?: string;
   File?: IInvoiceFile;
 }
 
@@ -68,39 +67,41 @@ export default class MyInvoicesWebPart extends BaseClientSideWebPart<IMyInvoices
   }
 
   private async _loadInvoices(): Promise<void> {
-    const currentUser = await this._getJson<{ Id: number }>(
-      this._restUrl('currentuser?$select=Id')
+    const currentUser = await this._getJson<ICurrentUser>(
+      this._restUrl('currentuser?$select=Email')
     );
-    if (!Number.isSafeInteger(currentUser.Id)) {
+    const currentUserEmail = currentUser.Email?.trim();
+    if (!currentUserEmail) {
       throw new Error('לא ניתן לזהות את המשתמש המחובר.');
     }
 
-    const ordersUrl = this._collectionUrl(
-      'הזמנות',
-      'Id,Title',
-      `AuthorId eq ${currentUser.Id}`
+    const invoicesUrl = this._collectionUrl(
+      'UploadedInvoices',
+      'Id,Title,InvoiceNumber,InvoiceDate,InvoiceAmount,InvoiceItemId,' +
+      'PurchaseOrderTitle,SupplierName,DocumentType,ApprovalStatus',
+      `InitiatorEmail eq '${currentUserEmail.replace(/'/g, "''")}'`
     );
-    const orders = await this._getAll<IOrder>(ordersUrl);
-    if (!orders.length) {
+    const invoices = await this._getAll<IInvoice>(invoicesUrl);
+    if (!invoices.length) {
       this._showEmpty();
       return;
     }
 
-    const invoices: IInvoice[] = [];
-    for (const order of orders) {
-      const invoiceUrl = this._collectionUrl(
-        'מסמכי פרויקט',
-        'Id,Title,InvoiceNumber,InvoiceDate,invoiceSum,AllocationNumber,DocumentType,' +
-          'InvoiceStatus,order0/Id,order0/Title,supplier/Id,supplier/Title,File/ServerRelativeUrl',
-        `CreatedBySupplierApp eq true and order0Id eq ${order.Id}`,
-        'order0,supplier,File'
-      );
-      const orderInvoices = await this._getAll<IInvoice>(invoiceUrl);
-      invoices.push(...orderInvoices.map((invoice) => ({
-        ...invoice,
-        order0: invoice.order0 || order
-      })));
-    }
+    const fileUrls = await this._getInvoiceFileUrls(
+      invoices
+        .map((invoice) => invoice.InvoiceItemId)
+        .filter((id): id is number =>
+          typeof id === 'number' && Number.isSafeInteger(id) && id > 0
+        )
+    );
+    invoices.forEach((invoice) => {
+      const fileUrl = invoice.InvoiceItemId
+        ? fileUrls.get(invoice.InvoiceItemId)
+        : undefined;
+      if (fileUrl) {
+        invoice.File = { ServerRelativeUrl: fileUrl };
+      }
+    });
 
     invoices.sort((left, right) => {
       const leftDate = left.InvoiceDate ? Date.parse(left.InvoiceDate) : 0;
@@ -115,6 +116,30 @@ export default class MyInvoicesWebPart extends BaseClientSideWebPart<IMyInvoices
     }
 
     this._renderInvoices(invoices);
+  }
+
+  private async _getInvoiceFileUrls(invoiceItemIds: number[]): Promise<Map<number, string>> {
+    const fileUrls = new Map<number, string>();
+    const uniqueIds = Array.from(new Set(invoiceItemIds));
+
+    for (let offset = 0; offset < uniqueIds.length; offset += 50) {
+      const batch = uniqueIds.slice(offset, offset + 50);
+      const filter = batch.map((id) => `Id eq ${id}`).join(' or ');
+      const url = this._collectionUrl(
+        'מסמכי פרויקט',
+        'Id,File/ServerRelativeUrl',
+        filter,
+        'File'
+      );
+      const items = await this._getAll<IInvoiceFileItem>(url);
+      items.forEach((item) => {
+        if (item.File?.ServerRelativeUrl) {
+          fileUrls.set(item.Id, item.File.ServerRelativeUrl);
+        }
+      });
+    }
+
+    return fileUrls;
   }
 
   private _collectionUrl(
@@ -152,21 +177,43 @@ export default class MyInvoicesWebPart extends BaseClientSideWebPart<IMyInvoices
         : invoice.Title || `חשבונית ${invoice.Id}`;
       const supplier = document.createElement('span');
       supplier.className = styles.invoiceMeta;
-      supplier.textContent = invoice.supplier?.Title || invoice.DocumentType || '';
+      supplier.textContent = invoice.SupplierName || invoice.DocumentType || '';
       main.append(title, supplier);
 
       item.append(
         main,
-        this._field('הזמנת רכש', invoice.order0?.Title || '—'),
+        this._field('הזמנת רכש', invoice.PurchaseOrderTitle || '—'),
         this._field('תאריך', this._formatDate(invoice.InvoiceDate)),
-        this._field('סכום', this._formatAmount(invoice.invoiceSum))
+        this._field('סכום', this._formatAmount(invoice.InvoiceAmount))
       );
 
       const status = document.createElement('span');
       status.className = styles.status;
-      status.textContent = this._formatStatus(invoice.InvoiceStatus);
+      status.textContent = this._formatStatus(invoice.ApprovalStatus);
       status.setAttribute('aria-label', `סטטוס: ${status.textContent}`);
-      item.append(status);
+      const statusActions = document.createElement('div');
+      statusActions.className = styles.statusActions;
+      statusActions.append(status);
+
+      if (
+        invoice.ApprovalStatus?.toLowerCase() === 'חדש' &&
+        typeof invoice.InvoiceItemId === 'number' &&
+        Number.isSafeInteger(invoice.InvoiceItemId) &&
+        invoice.InvoiceItemId > 0
+      ) {
+        const approvalButton = document.createElement('a');
+        approvalButton.className = styles.approvalButton;
+        const approvalUrl = new URL(
+          `${this.context.pageContext.web.absoluteUrl}/SitePages/InvoiceApprovalPage.aspx`
+        );
+        approvalUrl.searchParams.set('itemId', String(invoice.InvoiceItemId));
+        approvalButton.href = approvalUrl.toString();
+        approvalButton.target = '_blank';
+        approvalButton.rel = 'noopener noreferrer';
+        approvalButton.textContent = 'אישור / דחייה';
+        statusActions.append(approvalButton);
+      }
+      item.append(statusActions);
 
       if (invoice.File?.ServerRelativeUrl) {
         const link = document.createElement('a');

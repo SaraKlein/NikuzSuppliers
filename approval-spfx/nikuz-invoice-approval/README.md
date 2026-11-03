@@ -9,13 +9,14 @@ This SPFx solution contains two web parts for the Projects SharePoint site:
 
 ## SharePoint data
 
-Both web parts expect the `מסמכי פרויקט` document library and the `הזמנות`
-list to be on the same site. Invoice documents use the `order0` lookup to link
-to an order; the My Invoices web part only includes documents where
-`CreatedBySupplierApp` is `true`.
+The Invoice Approval web part expects the `מסמכי פרויקט` document library and
+the `הזמנות` list to be on the same site. The My Invoices web part reads invoice
+details from the `UploadedInvoices` list, filtering by the signed-in user's
+`InitiatorEmail`. It uses each tracking item's `InvoiceItemId` to retrieve the
+corresponding document link from `מסמכי פרויקט`.
 
-The My Invoices web part queries orders created by the current SharePoint user,
-then retrieves supplier-app invoices linked to each of those orders.
+Configure the `UploadedInvoices` fields documented in `api/README.md`, and
+ensure users can read their tracking items and the linked invoice files.
 
 ## Invoice approval page
 
