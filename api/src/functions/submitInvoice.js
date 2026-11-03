@@ -5,6 +5,7 @@ const graphBaseUrl = 'https://graph.microsoft.com/v1.0';
 const siteHost = 'yardend.sharepoint.com';
 const sitePath = '/sites/Projects';
 const listName = 'Invoices';
+const uploadedInvoicesListName = 'UploadedInvoices';
 const additionalDocumentsLibraryName = 'SupplierAdditionalDocuments';
 const financeTaskListName = 'רשימת משימות - כספים';
 const supplierListName = 'ספקים';
@@ -325,8 +326,9 @@ async function getVerifiedPurchaseOrder(siteId, orderId, supplierName, projectId
   );
   itemUrl.searchParams.set(
     '$expand',
-    `fields($select=SupplierText,money,sumOfInvoice,${projectColumn.name}LookupId)`
+    `fields($select=Title,AuthorLookupId,SupplierText,money,sumOfInvoice,${projectColumn.name}LookupId)`
   );
+  itemUrl.searchParams.set('$select', 'id,createdBy,fields');
   const order = await graphRequest(itemUrl, accessToken, null, 'purchase order verification');
   const fields = order.fields || {};
   const orderSupplier = String(fields.SupplierText || '').trim().toLowerCase();
@@ -335,13 +337,84 @@ async function getVerifiedPurchaseOrder(siteId, orderId, supplierName, projectId
   }
 
   const orderProjectId = String(fields[`${projectColumn.name}LookupId`] || '').split(',')[0].trim();
+  const initiatorId = Number(fields.AuthorLookupId);
+  const initiator = order.createdBy && order.createdBy.user;
+  const initiatorEmail = typeof (initiator && initiator.email) === 'string'
+    ? initiator.email.trim()
+    : '';
+  const initiatorName = typeof (initiator && initiator.displayName) === 'string'
+    ? initiator.displayName.trim()
+    : '';
   const money = getOrderAmount(fields.money, 'money');
   const sumOfInvoice = getOrderAmount(fields.sumOfInvoice, 'sumOfInvoice', 0);
   return {
     belongsToSupplier: true,
     belongsToProject: orderProjectId === projectId,
-    remainingAmount: roundCurrency(money - sumOfInvoice)
+    remainingAmount: roundCurrency(money - sumOfInvoice),
+    title: typeof fields.Title === 'string' ? fields.Title : '',
+    initiatorId: Number.isSafeInteger(initiatorId) && initiatorId > 0 ? initiatorId : null,
+    initiatorEmail,
+    initiatorName
   };
+}
+
+async function createUploadedInvoiceRecord(
+  siteId,
+  accessToken,
+  invoiceValues,
+  orderId,
+  order,
+  invoiceItemId
+) {
+  if (!order.initiatorId || !order.initiatorEmail) {
+    throw new Error('The purchase order creator is missing a SharePoint user ID or email address.');
+  }
+
+  const listsUrl = new URL(`${graphBaseUrl}/sites/${encodeURIComponent(siteId)}/lists`);
+  listsUrl.searchParams.set('$filter', `displayName eq '${uploadedInvoicesListName}'`);
+  listsUrl.searchParams.set('$select', 'id,displayName');
+  const lists = await graphRequest(
+    listsUrl,
+    accessToken,
+    null,
+    'uploaded invoices list lookup'
+  );
+  const list = (lists.value || []).find((item) => item.displayName === uploadedInvoicesListName);
+  if (!list) {
+    throw new Error(`SharePoint list "${uploadedInvoicesListName}" was not found.`);
+  }
+
+  const response = await graphRequest(
+    `${graphBaseUrl}/sites/${encodeURIComponent(siteId)}/lists/${encodeURIComponent(list.id)}/items`,
+    accessToken,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fields: {
+          Title: `${invoiceValues.invoiceNumber} - ${invoiceValues.supplierName}`.slice(0, 255),
+          InitiatorLookupId: order.initiatorId,
+          InitiatorEmail: order.initiatorEmail,
+          PurchaseOrderItemId: Number(orderId),
+          PurchaseOrderTitle: order.title,
+          InvoiceItemId: Number(invoiceItemId),
+          InvoiceNumber: invoiceValues.invoiceNumber,
+          InvoiceDate: invoiceValues.invoiceDate,
+          InvoiceAmount: invoiceValues.totalAmount,
+          SupplierName: invoiceValues.supplierName,
+          DocumentType: invoiceValues.documentType,
+          ApprovalStatus: 'חדש',
+          DecisionComment: ''
+        }
+      })
+    },
+    'uploaded invoice tracking record creation'
+  );
+
+  if (!response || typeof response.id !== 'string' || !response.id) {
+    throw new Error('Uploaded invoice tracking response did not include a list item ID.');
+  }
+  return response.id;
 }
 
 function getTextField(formData, name) {
@@ -621,7 +694,8 @@ function getInvoiceMetadata(invoiceValues, supplierId, orderId) {
     LinkedInvoiceNumber: invoiceValues.creditInvoiceNumber,
     _Comments: invoiceValues.supplierNotes,
     InvoiceDate: invoiceValues.invoiceDate,
-    CreatedFromSupplierApp: true,
+    CreatedBySupplierApp: true,
+    InvoiceStatus: 'חדש',
     IsTaxInvoice: invoiceValues.documentType !== "חשבונית עסקה" ? true : false
   };
 }
@@ -1009,6 +1083,17 @@ app.http('submitInvoice', {
         projectId,
         uploadResult.listItemId
       );
+      const uploadedInvoiceTrackingItemId = await runStep(
+        'יצירת פריט מעקב ברשימת UploadedInvoices',
+        () => createUploadedInvoiceRecord(
+          site.id,
+          graphToken,
+          invoiceValues,
+          orderId,
+          verifiedPurchaseOrder,
+          uploadResult.listItemId
+        )
+      );
 
       await writeAuditLog(
         'Information',
@@ -1019,6 +1104,7 @@ app.http('submitInvoice', {
           projectId,
           purchaseOrderId: orderId,
           invoiceListItemId: uploadResult.listItemId,
+          uploadedInvoiceTrackingItemId,
           uploadedInvoiceFileName: uploadResult.fileName,
           uploadedInvoiceFolder: uploadResult.folderServerRelativeUrl,
           uploadedSupportingFiles
@@ -1032,6 +1118,7 @@ app.http('submitInvoice', {
         uploaded: true,
         fileName: uploadResult.fileName,
         itemId: uploadResult.listItemId,
+        uploadedInvoiceTrackingItemId,
         fileUrl: uploadResult.fileUrl,
         folderServerRelativeUrl: uploadResult.folderServerRelativeUrl,
         supportingFiles: uploadedSupportingFiles,

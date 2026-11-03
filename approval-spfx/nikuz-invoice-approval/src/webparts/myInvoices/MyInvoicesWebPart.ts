@@ -92,7 +92,7 @@ export default class MyInvoicesWebPart extends BaseClientSideWebPart<IMyInvoices
         'מסמכי פרויקט',
         'Id,Title,InvoiceNumber,InvoiceDate,invoiceSum,AllocationNumber,DocumentType,' +
           'InvoiceStatus,order0/Id,order0/Title,supplier/Id,supplier/Title,File/ServerRelativeUrl',
-        `CreatedFromSupplierApp eq true and order0Id eq ${order.Id}`,
+        `CreatedBySupplierApp eq true and order0Id eq ${order.Id}`,
         'order0,supplier,File'
       );
       const orderInvoices = await this._getAll<IInvoice>(invoiceUrl);
