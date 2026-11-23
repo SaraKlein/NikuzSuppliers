@@ -21,6 +21,13 @@ name or a display name containing "מספר פרויקט". It also returns
 Stable Graph tokens and SharePoint site/list/column/project metadata are cached
 briefly in each running Azure Functions instance. Order balances and the order
 list are not cached, so selection data stays current.
+
+For faster form startup, `/api/getPurchaseOrders` supports separate `load`
+values: `orders` loads only purchase orders and projects, `invoiceNumbers`
+loads only previous finance-task invoice numbers, and `reconciliation` checks
+whether a submitted invoice number was saved. The portal starts the orders and
+invoice-history requests independently so the order dropdown can appear before
+the slower invoice-history query completes.
 A blank `sumOfInvoice` is treated as zero.
 The response also includes distinct `invoiceNumbers` from the
 `רשימת משימות - כספים` list where `supplier` matches the verified supplier.

@@ -287,7 +287,8 @@ app.http('getPurchaseOrders', {
       supplierNumber,
       supplierName,
       supplierEmail,
-      reconciliationInvoiceNumber
+      reconciliationInvoiceNumber,
+      load = 'orders'
     } = payload;
     if (
       typeof supplierNumber !== 'string'
@@ -303,6 +304,7 @@ app.http('getPurchaseOrders', {
         && (typeof reconciliationInvoiceNumber !== 'string'
           || reconciliationInvoiceNumber.trim().length < 1
           || reconciliationInvoiceNumber.length > 64))
+      || !['orders', 'invoiceNumbers', 'reconciliation'].includes(load)
     ) {
       return jsonResponse(400, { error: 'נא למלא פרטי ספק תקינים.' });
     }
@@ -326,18 +328,30 @@ app.http('getPurchaseOrders', {
         return jsonResponse(403, { error: 'פרטי הספק לא אומתו מול SharePoint.' });
       }
 
-      const [ordersList, invoiceNumbers, uploadedInvoiceFound] = await Promise.all([
-        getList(site.id, ordersListName, accessToken),
-        getSupplierInvoiceNumbers(site.id, supplierName, accessToken),
-        reconciliationInvoiceNumber
-          ? getUploadedInvoiceNumber(
+      if (load === 'invoiceNumbers') {
+        const invoiceNumbers = await getSupplierInvoiceNumbers(site.id, supplierName, accessToken);
+        return jsonResponse(200, {
+          invoiceNumbers,
+          uploadedInvoiceFound: false
+        });
+      }
+
+      if (load === 'reconciliation') {
+        const uploadedInvoiceFound = reconciliationInvoiceNumber
+          ? await getUploadedInvoiceNumber(
               site.id,
               reconciliationInvoiceNumber,
               supplierName,
               accessToken
             )
-          : Promise.resolve(false)
-      ]);
+          : false;
+        return jsonResponse(200, {
+          invoiceNumbers: [],
+          uploadedInvoiceFound
+        });
+      }
+
+      const ordersList = await getList(site.id, ordersListName, accessToken);
       const columns = await getColumns(site.id, ordersList.id, accessToken);
       const projectColumn = columns.find((column) => (
         (column.name === 'Project' || column.displayName === 'Project')
@@ -443,8 +457,8 @@ app.http('getPurchaseOrders', {
 
       return jsonResponse(200, {
         orders: result,
-        invoiceNumbers,
-        uploadedInvoiceFound
+        invoiceNumbers: [],
+        uploadedInvoiceFound: false
       });
     } catch (error) {
       context.error('Purchase order lookup failed.', error);

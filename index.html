@@ -1193,6 +1193,7 @@
         let ordersLoading = false;
         let ordersLoadFailed = false;
         let ordersRequestId = 0;
+        let previousInvoicesLoading = false;
 
         uploadErrorDetailsButton.addEventListener('click', () => {
             const expanded = uploadErrorDetailsButton.getAttribute('aria-expanded') === 'true';
@@ -1328,6 +1329,49 @@
             }
         }
 
+        async function loadPreviousInvoiceNumbers(supplier, requestId) {
+            previousInvoicesLoading = true;
+            creditInvoiceSelect.disabled = true;
+            try {
+                const response = await fetch('/api/getPurchaseOrders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...supplier,
+                        load: 'invoiceNumbers'
+                    })
+                });
+                if (!response.ok) {
+                    throw new Error(`Previous invoice request failed (${response.status})`);
+                }
+                const result = await response.json();
+                if (
+                    requestId !== ordersRequestId
+                    || !result
+                    || !Array.isArray(result.invoiceNumbers)
+                    || !result.invoiceNumbers.every((number) => typeof number === 'string')
+                ) {
+                    return;
+                }
+                populateCreditInvoiceNumbers(result.invoiceNumbers);
+                if (!ordersLoading) {
+                    purchaseOrderNoticeText.textContent = purchaseOrders.size
+                        ? `פרטי הספק אומתו. נמצאו ${purchaseOrders.size} הזמנות רכש ו-${supplierInvoiceNumbers.length} חשבוניות קודמות.`
+                        : `פרטי הספק אומתו, אך לא נמצאו הזמנות רכש המשויכות אליו. נמצאו ${supplierInvoiceNumbers.length} חשבוניות קודמות.`;
+                }
+            } catch (error) {
+                if (requestId === ordersRequestId) {
+                    console.warn('Could not load previous invoice numbers.', error);
+                    populateCreditInvoiceNumbers([]);
+                }
+            } finally {
+                if (requestId === ordersRequestId) {
+                    previousInvoicesLoading = false;
+                    creditInvoiceSelect.disabled = false;
+                }
+            }
+        }
+
         async function loadSupplierOrders(supplier) {
             const requestId = ++ordersRequestId;
             ordersLoading = true;
@@ -1346,7 +1390,10 @@
                 const response = await fetch('/api/getPurchaseOrders', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(supplier)
+                    body: JSON.stringify({
+                        ...supplier,
+                        load: 'orders'
+                    })
                 });
                 if (!response.ok) {
                     throw new Error(`Purchase order request failed (${response.status})`);
@@ -1356,8 +1403,6 @@
                 if (
                     !result
                     || !Array.isArray(result.orders)
-                    || !Array.isArray(result.invoiceNumbers)
-                    || !result.invoiceNumbers.every((number) => typeof number === 'string')
                     || !result.orders.every((order) => (
                         order
                         && typeof order.id === 'string'
@@ -1401,12 +1446,13 @@
                         order.id
                     ));
                 }
-                populateCreditInvoiceNumbers(result.invoiceNumbers);
                 purchaseOrderSelect.disabled = false;
                 purchaseOrderNoticeText.textContent = result.orders.length
-                    ? `פרטי הספק אומתו. נמצאו ${result.orders.length} הזמנות רכש ו-${supplierInvoiceNumbers.length} חשבוניות קודמות.`
-                    : `פרטי הספק אומתו, אך לא נמצאו הזמנות רכש המשויכות אליו. נמצאו ${supplierInvoiceNumbers.length} חשבוניות קודמות.`;
+                    ? `פרטי הספק אומתו. נמצאו ${result.orders.length} הזמנות רכש. בודק חשבוניות קודמות...`
+                    : 'פרטי הספק אומתו, אך לא נמצאו הזמנות רכש המשויכות אליו. בודק חשבוניות קודמות...';
                 renderPurchaseOrderDetails();
+                populateCreditInvoiceNumbers([]);
+                loadPreviousInvoiceNumbers(supplier, requestId);
             } catch (error) {
                 if (requestId !== ordersRequestId) {
                     return;
@@ -1576,6 +1622,8 @@
                     resetPurchaseOrderPicker();
                     purchaseOrderSelect.disabled = true;
                     populateCreditInvoiceNumbers([]);
+                    previousInvoicesLoading = true;
+                    creditInvoiceSelect.disabled = true;
                     document.getElementById('verified-number').value = supplier.supplierNumber;
                     document.getElementById('verified-name').value = supplier.supplierName;
                     document.getElementById('verified-email').value = supplier.supplierEmail;
@@ -1909,7 +1957,8 @@
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
                                     ...activeSupplier,
-                                    reconciliationInvoiceNumber: uploadedInvoiceNumber
+                                    reconciliationInvoiceNumber: uploadedInvoiceNumber,
+                                    load: 'reconciliation'
                                 })
                                 });
                                 if (!statusResponse.ok) {
@@ -1961,6 +2010,8 @@
             ordersLoadFailed = false;
             purchaseOrders.clear();
             populateCreditInvoiceNumbers([]);
+            previousInvoicesLoading = false;
+            creditInvoiceSelect.disabled = false;
             purchaseOrderSelect.replaceChildren(new Option('בחירת הזמנת רכש', ''));
             resetPurchaseOrderPicker();
             purchaseOrderSelect.disabled = false;
