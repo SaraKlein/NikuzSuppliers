@@ -8,6 +8,28 @@ const ordersListName = 'הזמנות';
 const financeTaskListName = 'רשימת משימות - כספים';
 const invoiceListName = 'Invoices';
 const supplierFields = ['field_1', 'Title', 'field_7'];
+const memoryCaches = new Map();
+const cacheTtl = {
+  token: 50 * 60 * 1000,
+  site: 30 * 60 * 1000,
+  list: 30 * 60 * 1000,
+  columns: 30 * 60 * 1000,
+  suppliers: 10 * 60 * 1000,
+  invoiceNumbers: 60 * 1000,
+  projects: 10 * 60 * 1000
+};
+
+function getCached(key, ttl, loader) {
+  const cached = memoryCaches.get(key);
+  if (cached && cached.expiresAt > Date.now()) {
+    return Promise.resolve(cached.value);
+  }
+  const loaded = loader();
+  return loaded.then((value) => {
+    memoryCaches.set(key, { value, expiresAt: Date.now() + ttl });
+    return value;
+  });
+}
 
 function jsonResponse(status, body) {
   return {
@@ -39,32 +61,35 @@ function getCredentials() {
 }
 
 async function getAccessToken(credentials) {
-  const body = new URLSearchParams({
-    client_id: credentials.clientId,
-    client_secret: credentials.clientSecret,
-    scope: 'https://graph.microsoft.com/.default',
-    grant_type: 'client_credentials'
-  });
-  const response = await fetch(
-    `https://login.microsoftonline.com/${encodeURIComponent(credentials.tenantId)}/oauth2/v2.0/token`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body,
-      signal: AbortSignal.timeout(10000)
+  const cacheKey = `token:${credentials.tenantId}:${credentials.clientId}`;
+  return getCached(cacheKey, cacheTtl.token, async () => {
+    const body = new URLSearchParams({
+      client_id: credentials.clientId,
+      client_secret: credentials.clientSecret,
+      scope: 'https://graph.microsoft.com/.default',
+      grant_type: 'client_credentials'
+    });
+    const response = await fetch(
+      `https://login.microsoftonline.com/${encodeURIComponent(credentials.tenantId)}/oauth2/v2.0/token`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+        signal: AbortSignal.timeout(10000)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Microsoft identity token request failed (${response.status})`);
     }
-  );
 
-  if (!response.ok) {
-    throw new Error(`Microsoft identity token request failed (${response.status})`);
-  }
+    const tokenResponse = await response.json();
+    if (typeof tokenResponse.access_token !== 'string') {
+      throw new Error('Microsoft identity token response did not include an access token');
+    }
 
-  const tokenResponse = await response.json();
-  if (typeof tokenResponse.access_token !== 'string') {
-    throw new Error('Microsoft identity token response did not include an access token');
-  }
-
-  return tokenResponse.access_token;
+    return tokenResponse.access_token;
+  });
 }
 
 async function graphGet(url, accessToken, operation) {
@@ -94,24 +119,30 @@ function getNextUrl(page) {
 }
 
 async function getList(siteId, displayName, accessToken) {
-  const url = new URL(`${graphBaseUrl}/sites/${siteId}/lists`);
-  url.searchParams.set('$filter', `displayName eq '${displayName.replace(/'/g, "''")}'`);
-  url.searchParams.set('$select', 'id,displayName');
-  const result = await graphGet(url, accessToken, 'list lookup');
-  const list = result.value.find((item) => item.displayName === displayName);
+  const cacheKey = `list:${siteId}:${displayName}`;
+  return getCached(cacheKey, cacheTtl.list, async () => {
+    const url = new URL(`${graphBaseUrl}/sites/${siteId}/lists`);
+    url.searchParams.set('$filter', `displayName eq '${displayName.replace(/'/g, "''")}'`);
+    url.searchParams.set('$select', 'id,displayName');
+    const result = await graphGet(url, accessToken, 'list lookup');
+    const list = result.value.find((item) => item.displayName === displayName);
 
-  if (!list) {
-    throw new Error(`SharePoint list "${displayName}" was not found`);
-  }
+    if (!list) {
+      throw new Error(`SharePoint list "${displayName}" was not found`);
+    }
 
-  return list;
+    return list;
+  });
 }
 
 async function getColumns(siteId, listId, accessToken) {
-  const url = new URL(`${graphBaseUrl}/sites/${siteId}/lists/${listId}/columns`);
-  url.searchParams.set('$select', 'name,displayName,lookup');
-  const result = await graphGet(url, accessToken, 'list columns lookup');
-  return result.value;
+  const cacheKey = `columns:${siteId}:${listId}`;
+  return getCached(cacheKey, cacheTtl.columns, async () => {
+    const url = new URL(`${graphBaseUrl}/sites/${siteId}/lists/${listId}/columns`);
+    url.searchParams.set('$select', 'name,displayName,lookup');
+    const result = await graphGet(url, accessToken, 'list columns lookup');
+    return result.value;
+  });
 }
 
 async function getItems(siteId, listId, selectFields, accessToken, operation, selectItemFields = []) {
@@ -165,8 +196,11 @@ function roundCurrency(amount) {
 }
 
 async function findVerifiedSupplierIds(siteId, values, accessToken) {
-  const supplierList = await getList(siteId, supplierListName, accessToken);
-  const items = await getItems(siteId, supplierList.id, supplierFields, accessToken, 'supplier verification');
+  const supplierKey = `suppliers:${siteId}`;
+  const items = await getCached(supplierKey, cacheTtl.suppliers, async () => {
+    const supplierList = await getList(siteId, supplierListName, accessToken);
+    return getItems(siteId, supplierList.id, supplierFields, accessToken, 'supplier verification');
+  });
 
   return items.some((item) => {
     const fields = item.fields || {};
@@ -176,46 +210,52 @@ async function findVerifiedSupplierIds(siteId, values, accessToken) {
 }
 
 async function getUploadedInvoiceNumber(siteId, invoiceNumber, supplierName, accessToken) {
-  const invoiceList = await getList(siteId, invoiceListName, accessToken);
-  const items = await getItems(
-    siteId,
-    invoiceList.id,
-    ['InvoiceNumber', 'SupplierName'],
-    accessToken,
-    'uploaded invoice reconciliation lookup'
-  );
+  const cacheKey = `uploaded-invoice:${siteId}:${normalize(supplierName)}:${normalize(invoiceNumber)}`;
+  return getCached(cacheKey, cacheTtl.invoiceNumbers, async () => {
+    const invoiceList = await getList(siteId, invoiceListName, accessToken);
+    const items = await getItems(
+      siteId,
+      invoiceList.id,
+      ['InvoiceNumber', 'SupplierName'],
+      accessToken,
+      'uploaded invoice reconciliation lookup'
+    );
 
-  return items.some((item) => {
-    const fields = item.fields || {};
-    return normalize(fields.InvoiceNumber) === normalize(invoiceNumber)
-      && normalize(fields.SupplierName) === normalize(supplierName);
+    return items.some((item) => {
+      const fields = item.fields || {};
+      return normalize(fields.InvoiceNumber) === normalize(invoiceNumber)
+        && normalize(fields.SupplierName) === normalize(supplierName);
+    });
   });
 }
 
 async function getSupplierInvoiceNumbers(siteId, supplierName, accessToken) {
-  const financeList = await getList(siteId, financeTaskListName, accessToken);
-  const items = await getItems(
-    siteId,
-    financeList.id,
-    ['invoiceNumber', 'supplier'],
-    accessToken,
-    'supplier invoice history lookup'
-  );
-  const invoiceNumbers = new Set();
+  const cacheKey = `invoice-numbers:${siteId}:${normalize(supplierName)}`;
+  return getCached(cacheKey, cacheTtl.invoiceNumbers, async () => {
+    const financeList = await getList(siteId, financeTaskListName, accessToken);
+    const items = await getItems(
+      siteId,
+      financeList.id,
+      ['invoiceNumber', 'supplier'],
+      accessToken,
+      'supplier invoice history lookup'
+    );
+    const invoiceNumbers = new Set();
 
-  for (const item of items) {
-    const fields = item.fields || {};
-    const invoiceNumber = fields.invoiceNumber;
-    if (
-      normalize(fields.supplier) === normalize(supplierName)
-      && (typeof invoiceNumber === 'string' || typeof invoiceNumber === 'number')
-      && String(invoiceNumber).trim()
-    ) {
-      invoiceNumbers.add(String(invoiceNumber).trim());
+    for (const item of items) {
+      const fields = item.fields || {};
+      const invoiceNumber = fields.invoiceNumber;
+      if (
+        normalize(fields.supplier) === normalize(supplierName)
+        && (typeof invoiceNumber === 'string' || typeof invoiceNumber === 'number')
+        && String(invoiceNumber).trim()
+      ) {
+        invoiceNumbers.add(String(invoiceNumber).trim());
+      }
     }
-  }
 
-  return [...invoiceNumbers].sort((left, right) => left.localeCompare(right, 'he'));
+    return [...invoiceNumbers].sort((left, right) => left.localeCompare(right, 'he'));
+  });
 }
 
 app.http('getPurchaseOrders', {
@@ -269,10 +309,12 @@ app.http('getPurchaseOrders', {
 
     try {
       const accessToken = await getAccessToken(credentials);
-      const site = await graphGet(
-        `${graphBaseUrl}/sites/${siteHost}:` + sitePath,
-        accessToken,
-        'site lookup'
+      const site = await getCached(`site:${siteHost}:${sitePath}`, cacheTtl.site, async () =>
+        graphGet(
+          `${graphBaseUrl}/sites/${siteHost}:` + sitePath,
+          accessToken,
+          'site lookup'
+        )
       );
       const supplierIsValid = await findVerifiedSupplierIds(site.id, {
         supplierNumber: normalize(supplierNumber),
@@ -323,30 +365,32 @@ app.http('getPurchaseOrders', {
         ),
         (async () => {
           const projectListId = projectColumn.lookup.listId;
-          const projectColumns = await getColumns(site.id, projectListId, accessToken);
-          const projectNumberColumn = projectColumns.find((column) => {
-            const name = normalize(column.name);
-            const displayName = normalize(column.displayName);
-            return name === 'projectnumber'
-              || name === 'project_number'
-              || name === 'field_projectnumber'
-              || displayName.includes('מספר פרויקט')
-              || displayName === 'מספר'
-              || displayName === 'project number';
+          return getCached(`projects:${site.id}:${projectListId}`, cacheTtl.projects, async () => {
+            const projectColumns = await getColumns(site.id, projectListId, accessToken);
+            const projectNumberColumn = projectColumns.find((column) => {
+              const name = normalize(column.name);
+              const displayName = normalize(column.displayName);
+              return name === 'projectnumber'
+                || name === 'project_number'
+                || name === 'field_projectnumber'
+                || displayName.includes('מספר פרויקט')
+                || displayName === 'מספר'
+                || displayName === 'project number';
+            });
+            const projectFields = [
+              'Title',
+              'ProjectFolderUrl',
+              ...(projectNumberColumn ? [projectNumberColumn.name] : [])
+            ];
+            const items = await getItems(
+              site.id,
+              projectListId,
+              projectFields,
+              accessToken,
+              'project lookup'
+            );
+            return { items, projectNumberColumn };
           });
-          const projectFields = [
-            'Title',
-            'ProjectFolderUrl',
-            ...(projectNumberColumn ? [projectNumberColumn.name] : [])
-          ];
-          const items = await getItems(
-            site.id,
-            projectListId,
-            projectFields,
-            accessToken,
-            'project lookup'
-          );
-          return { items, projectNumberColumn };
         })()
       ]);
       const projectsResult = projects.items;

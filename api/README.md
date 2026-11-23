@@ -18,6 +18,9 @@ SharePoint order list item ID. It also returns
 name or a display name containing "מספר פרויקט". It also returns
 `money` (order amount), `sumOfInvoice` (amount already invoiced), and
 `remainingAmount` (`money - sumOfInvoice`) for each order.
+Stable Graph tokens and SharePoint site/list/column/project metadata are cached
+briefly in each running Azure Functions instance. Order balances and the order
+list are not cached, so selection data stays current.
 A blank `sumOfInvoice` is treated as zero.
 The response also includes distinct `invoiceNumbers` from the
 `רשימת משימות - כספים` list where `supplier` matches the verified supplier.
