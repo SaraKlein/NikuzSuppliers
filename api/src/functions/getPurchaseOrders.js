@@ -306,12 +306,31 @@ app.http('getPurchaseOrders', {
       if (!projectColumn) {
         throw new Error('The orders list does not have a Project lookup column');
       }
+      const orderNumberColumn = columns.find((column) => {
+        const name = normalize(column.name);
+        const displayName = normalize(column.displayName);
+        return name === 'ordernumber'
+          || name === 'order_number'
+          || name === 'ponumber'
+          || name === 'po_number'
+          || displayName.includes('מספר הזמ')
+          || displayName === 'order number'
+          || displayName === 'purchase order number';
+      });
+      const orderNumberColumnName = orderNumberColumn ? orderNumberColumn.name : '';
 
       const [orders, projects] = await Promise.all([
         getItems(
           site.id,
           ordersList.id,
-          ['Title', 'SupplierText', 'money', 'sumOfInvoice', `${projectColumn.name}LookupId`],
+          [
+            'Title',
+            'SupplierText',
+            'money',
+            'sumOfInvoice',
+            `${projectColumn.name}LookupId`,
+            ...(orderNumberColumnName ? [orderNumberColumnName] : [])
+          ],
           accessToken,
           'purchase order lookup',
           ['createdBy']
@@ -372,9 +391,17 @@ app.http('getPurchaseOrders', {
           const project = projectDetails.get(projectId);
           const money = getOrderAmount(fields.money, 'money');
           const sumOfInvoice = getOrderAmount(fields.sumOfInvoice, 'sumOfInvoice', 0);
+          const title = typeof fields.Title === 'string' ? fields.Title : '';
+          const orderNumberValue = orderNumberColumnName
+            ? fields[orderNumberColumnName]
+            : title;
+          const orderNumber = typeof orderNumberValue === 'string' || typeof orderNumberValue === 'number'
+            ? String(orderNumberValue).trim()
+            : '';
           return {
             id: String(order.id),
-            title: typeof fields.Title === 'string' ? fields.Title : '',
+            title,
+            orderNumber,
             initiatorName: typeof order.createdBy?.user?.displayName === 'string'
               ? order.createdBy.user.displayName
               : '',

@@ -556,6 +556,38 @@
             outline: 2px solid rgba(22, 133, 184, 0.14);
         }
 
+        #purchase-order {
+            height: 48px;
+            min-height: 48px;
+            padding: 8px 42px 8px 14px;
+            border: 1px solid #93b6ca;
+            border-radius: 8px;
+            background:
+                linear-gradient(45deg, transparent 50%, #0873a8 50%) calc(100% - 18px) 21px / 6px 6px no-repeat,
+                linear-gradient(135deg, #0873a8 50%, transparent 50%) calc(100% - 12px) 21px / 6px 6px no-repeat,
+                linear-gradient(#f7fbfd, #f7fbfd);
+            color: #1d4a65;
+            font-size: 15px;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(32, 96, 130, 0.08);
+            cursor: pointer;
+            appearance: none;
+        }
+
+        #purchase-order:hover {
+            border-color: #0873a8;
+            background:
+                linear-gradient(45deg, transparent 50%, #0873a8 50%) calc(100% - 18px) 21px / 6px 6px no-repeat,
+                linear-gradient(135deg, #0873a8 50%, transparent 50%) calc(100% - 12px) 21px / 6px 6px no-repeat,
+                linear-gradient(#fff, #fff);
+        }
+
+        #purchase-order option {
+            color: #243e55;
+            font-size: 14px;
+            font-weight: 400;
+        }
+
         #invoice-form {
             display: block;
         }
@@ -878,7 +910,7 @@
                         </span>
                     </div>
                     <div class="purchase-summary" aria-label="פרטי הזמנת רכש">
-                        <div class="purchase-detail"><span>מזהה הזמנה</span><strong id="purchase-order-id">—</strong>
+                        <div class="purchase-detail"><span>מספר הזמנה</span><strong id="purchase-order-id">—</strong>
                         </div>
                         <div class="purchase-detail"><span>פרויקט</span><strong id="purchase-project-title">—</strong>
                         </div>
@@ -1007,7 +1039,9 @@
 
         function renderPurchaseOrderDetails() {
             const order = purchaseOrders.get(purchaseOrderSelect.value);
-            document.getElementById('purchase-order-id').textContent = order ? order.id : '—';
+            document.getElementById('purchase-order-id').textContent = order
+                ? order.orderNumber || order.title || order.id
+                : '—';
             document.getElementById('purchase-project-title').textContent = order
                 ? order.projectTitle
                 : '—';
@@ -1078,6 +1112,7 @@
                         order
                         && typeof order.id === 'string'
                         && typeof order.title === 'string'
+                        && typeof order.orderNumber === 'string'
                         && typeof order.initiatorName === 'string'
                         && typeof order.projectId === 'string'
                         && typeof order.projectTitle === 'string'
@@ -1106,8 +1141,13 @@
                     const projectLabel = [order.projectTitle, order.projectNumber]
                         .filter((value) => value.trim())
                         .join(' — ');
+                    const orderLabel = [
+                        order.orderNumber ? `מספר הזמנה: ${order.orderNumber}` : '',
+                        order.title ? `שם הזמנה: ${order.title}` : '',
+                        projectLabel ? `פרויקט: ${projectLabel}` : ''
+                    ].filter(Boolean).join(' | ');
                     purchaseOrderSelect.add(new Option(
-                        `${order.title}${projectLabel ? ` — ${projectLabel}` : ''}`,
+                        orderLabel,
                         order.id
                     ));
                 }
