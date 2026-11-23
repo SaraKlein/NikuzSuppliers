@@ -316,19 +316,48 @@ app.http('getPurchaseOrders', {
           'purchase order lookup',
           ['createdBy']
         ),
-        getItems(
-          site.id,
-          projectColumn.lookup.listId,
-          ['Title', 'ProjectFolderUrl'],
-          accessToken,
-          'project lookup'
-        )
+        (async () => {
+          const projectListId = projectColumn.lookup.listId;
+          const projectColumns = await getColumns(site.id, projectListId, accessToken);
+          const projectNumberColumn = projectColumns.find((column) => {
+            const name = normalize(column.name);
+            const displayName = normalize(column.displayName);
+            return name === 'projectnumber'
+              || name === 'project_number'
+              || name === 'field_projectnumber'
+              || displayName.includes('מספר פרויקט')
+              || displayName === 'מספר'
+              || displayName === 'project number';
+          });
+          const projectFields = [
+            'Title',
+            'ProjectFolderUrl',
+            ...(projectNumberColumn ? [projectNumberColumn.name] : [])
+          ];
+          const items = await getItems(
+            site.id,
+            projectListId,
+            projectFields,
+            accessToken,
+            'project lookup'
+          );
+          return { items, projectNumberColumn };
+        })()
       ]);
+      const projectsResult = projects.items;
+      const projectNumberColumnName = projects.projectNumberColumn
+        ? projects.projectNumberColumn.name
+        : '';
       const projectDetails = new Map(
-        projects.map((project) => {
+        projectsResult.map((project) => {
           const fields = project.fields || {};
           return [String(project.id), {
             title: typeof fields.Title === 'string' ? fields.Title : '',
+            projectNumber: projectNumberColumnName
+              && (typeof fields[projectNumberColumnName] === 'string'
+                || typeof fields[projectNumberColumnName] === 'number')
+              ? String(fields[projectNumberColumnName]).trim()
+              : '',
             projectFolderUrl: typeof fields.ProjectFolderUrl === 'string'
               ? fields.ProjectFolderUrl
               : ''
@@ -351,6 +380,7 @@ app.http('getPurchaseOrders', {
               : '',
             projectId,
             projectTitle: project ? project.title : '',
+            projectNumber: project ? project.projectNumber : '',
             projectFolderUrl: project ? project.projectFolderUrl : '',
             money,
             sumOfInvoice,

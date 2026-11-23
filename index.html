@@ -1081,6 +1081,7 @@
                         && typeof order.initiatorName === 'string'
                         && typeof order.projectId === 'string'
                         && typeof order.projectTitle === 'string'
+                        && typeof order.projectNumber === 'string'
                         && typeof order.projectFolderUrl === 'string'
                         && Number.isFinite(order.money)
                         && Number.isFinite(order.sumOfInvoice)
@@ -1102,7 +1103,13 @@
                 purchaseOrderSelect.replaceChildren(new Option('בחירת הזמנת רכש', ''));
                 for (const order of result.orders) {
                     purchaseOrders.set(order.id, order);
-                    purchaseOrderSelect.add(new Option(order.title, order.id));
+                    const projectLabel = [order.projectTitle, order.projectNumber]
+                        .filter((value) => value.trim())
+                        .join(' — ');
+                    purchaseOrderSelect.add(new Option(
+                        `${order.title}${projectLabel ? ` — ${projectLabel}` : ''}`,
+                        order.id
+                    ));
                 }
                 populateCreditInvoiceNumbers(result.invoiceNumbers);
                 purchaseOrderSelect.disabled = false;

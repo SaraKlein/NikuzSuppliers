@@ -26,22 +26,28 @@ ID, for example:
 `https://yardend.sharepoint.com/sites/Projects/SitePages/InvoiceApproval.aspx?itemId=123`
 
 The SPFx project checks the `Author` identity before showing invoice details.
-Approval updates `InvoiceStatus` to `approve` or `reject`; a rejection requires
-a comment, saved in `OrderInitiatorComments`.
+The accounts `hashav@yardend.org.il`, `heshbonot@yardend.org.il`, and
+`portal@yardend.org.il` can also view and approve any invoice. Approval updates
+`InvoiceStatus` to `approve` or `reject`; a rejection requires a comment, saved
+in `OrderInitiatorComments`.
 
 ## My Invoices page
 
 Add the **החשבוניות שלי** web part to a modern SharePoint page on the same site.
 It automatically uses the currently signed-in SharePoint user and needs no URL
-parameters.
+parameters. The three designated approver accounts above see all tracking items;
+other users see only invoices for purchase orders they created. The approvers
+must have SharePoint permission to read all tracking items and the linked files.
 
 ## Security requirements before deployment
 
 The identity filtering in a web part is not a security boundary by itself.
 SharePoint permissions must also enforce access to invoices and files:
 
-1. Assign invoice read/edit permissions to the intended order initiator and
-   administrators, on both the library item and its file.
+1. Assign invoice read/edit permissions to the intended order initiator,
+   administrators, and the three designated approver accounts above, on both
+   the library item and its file. The web-part identity check does not grant
+   SharePoint permissions.
 2. Verify with another SharePoint user that direct REST requests cannot read
    or update invoices they are not authorized to access.
 3. Decommission the old anonymous `GET`/`POST /api/invoiceApproval` Azure

@@ -43,12 +43,18 @@ interface IODataEnvelope<T> {
   d: T | IVerboseCollection<T>;
 }
 
+const allInvoicesViewerEmails = new Set([
+  'hashav@yardend.org.il',
+  'heshbonot@yardend.org.il',
+  'portal@yardend.org.il'
+]);
+
 export default class MyInvoicesWebPart extends BaseClientSideWebPart<IMyInvoicesWebPartProps> {
   public render(): void {
     this.domElement.innerHTML = `
       <section class="${styles.myInvoices}" aria-labelledby="my-invoices-title">
         <h1 class="${styles.heading}" id="my-invoices-title">החשבוניות שלי</h1>
-        <p class="${styles.subtitle}">חשבוניות שהוגשו עבור הזמנות רכש שיצרת.</p>
+        <p class="${styles.subtitle}" id="my-invoices-subtitle">חשבוניות שהוגשו עבור הזמנות רכש שיצרת.</p>
         <div class="${styles.loading}" id="invoices-loading" role="status" aria-live="polite">
           טוען את החשבוניות...
         </div>
@@ -71,16 +77,24 @@ export default class MyInvoicesWebPart extends BaseClientSideWebPart<IMyInvoices
     const currentUser = await this._getJson<ICurrentUser>(
       this._restUrl('currentuser?$select=Email')
     );
-    const currentUserEmail = currentUser.Email?.trim();
+    const currentUserEmail = currentUser.Email?.trim().toLowerCase();
     if (!currentUserEmail) {
       throw new Error('לא ניתן לזהות את המשתמש המחובר.');
+    }
+    const canViewAllInvoices = allInvoicesViewerEmails.has(currentUserEmail);
+    if (canViewAllInvoices) {
+      this._element('my-invoices-title').textContent = 'כל החשבוניות';
+      this._element('my-invoices-subtitle').textContent = 'כל החשבוניות שהוגשו במערכת.';
+      this._element('invoices-empty').textContent = 'לא נמצאו חשבוניות.';
     }
 
     const invoicesUrl = this._collectionUrl(
       'UploadedInvoices',
       'Id,Title,Created,InvoiceNumber,InvoiceDate,InvoiceAmount,InvoiceItemId,' +
       'PurchaseOrderTitle,SupplierName,DocumentType,ApprovalStatus',
-      `InitiatorEmail eq '${currentUserEmail.replace(/'/g, "''")}'`
+      canViewAllInvoices
+        ? undefined
+        : `InitiatorEmail eq '${currentUserEmail.replace(/'/g, "''")}'`
     );
     const invoices = await this._getAll<IInvoice>(invoicesUrl);
     if (!invoices.length) {
@@ -146,14 +160,16 @@ export default class MyInvoicesWebPart extends BaseClientSideWebPart<IMyInvoices
   private _collectionUrl(
     listTitle: string,
     select: string,
-    filter: string,
+    filter?: string,
     expand?: string
   ): string {
     const url = new URL(
       this._restUrl(`lists/getbytitle('${listTitle.replace(/'/g, "''")}')/items`)
     );
     url.searchParams.set('$select', select);
-    url.searchParams.set('$filter', filter);
+    if (filter) {
+      url.searchParams.set('$filter', filter);
+    }
     url.searchParams.set('$top', '5000');
     if (expand) {
       url.searchParams.set('$expand', expand);

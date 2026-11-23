@@ -60,6 +60,12 @@ interface IOrderItem {
   Author?: IUser;
 }
 
+const invoiceApproverEmails = new Set([
+  'hashav@yardend.org.il',
+  'heshbonot@yardend.org.il',
+  'portal@yardend.org.il'
+]);
+
 export default class InvoiceApprovalWebPart extends BaseClientSideWebPart<IInvoiceApprovalWebPartProps> {
   private _invoice?: IInvoiceItem;
   private _uploadedInvoiceItemId?: number;
@@ -182,11 +188,14 @@ export default class InvoiceApprovalWebPart extends BaseClientSideWebPart<IInvoi
       console.log('Fetching order from SharePoint:', orderUrl);
       const order = await this._getJson<IOrderItem>(orderUrl);
       console.log('Fetched order:', order);
-      const currentUser = await this._getJson<{ Id: number }>(
-        this._restUrl('currentuser?$select=Id')
+      const currentUser = await this._getJson<{ Id: number; Email?: string }>(
+        this._restUrl('currentuser?$select=Id,Email')
       );
       console.log('Current user:', currentUser);
-      if (!order.Author || order.Author.Id !== currentUser.Id) {
+      const currentUserEmail = currentUser.Email?.trim().toLowerCase();
+      const isDesignatedApprover = currentUserEmail !== undefined &&
+        invoiceApproverEmails.has(currentUserEmail);
+      if ((!order.Author || order.Author.Id !== currentUser.Id) && !isDesignatedApprover) {
         this._showMessage('המשתמש הנוכחי אינו מורשה לצפות בחשבונית זו.');
         return;
       }

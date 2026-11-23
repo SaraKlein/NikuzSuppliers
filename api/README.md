@@ -13,6 +13,8 @@ returns items from the `הזמנות` list whose `SupplierText` field matches th
 verified supplier name. The current diagnostic response includes each order's
 SharePoint item ID and `Title`, plus the referenced project's ID and `Title`
 and `ProjectFolderUrl` from the `Project` lookup target. It also returns
+`projectNumber` when the project list contains a column matching a project-number
+name or a display name containing "מספר פרויקט". It also returns
 `money` (order amount), `sumOfInvoice` (amount already invoiced), and
 `remainingAmount` (`money - sumOfInvoice`) for each order.
 A blank `sumOfInvoice` is treated as zero.
