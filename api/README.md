@@ -12,9 +12,8 @@ The `POST /api/getPurchaseOrders` endpoint repeats that supplier check, then
 returns items from the `הזמנות` list whose `SupplierText` field matches the
 verified supplier name. The current diagnostic response includes each order's
 SharePoint item ID and `Title`, plus the referenced project's ID and `Title`
-and `ProjectFolderUrl` from the `Project` lookup target. It returns `orderNumber`
-from a dedicated order-number column when available, with `Title` as a fallback.
-It also returns
+and `ProjectFolderUrl` from the `Project` lookup target. `orderNumber` is the
+SharePoint order list item ID. It also returns
 `projectNumber` when the project list contains a column matching a project-number
 name or a display name containing "מספר פרויקט". It also returns
 `money` (order amount), `sumOfInvoice` (amount already invoiced), and

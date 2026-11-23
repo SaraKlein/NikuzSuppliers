@@ -556,36 +556,162 @@
             outline: 2px solid rgba(22, 133, 184, 0.14);
         }
 
+        .purchase-order-picker {
+            position: relative;
+            min-width: 0;
+        }
+
         #purchase-order {
-            height: 48px;
-            min-height: 48px;
-            padding: 8px 42px 8px 14px;
-            border: 1px solid #93b6ca;
-            border-radius: 8px;
-            background:
-                linear-gradient(45deg, transparent 50%, #0873a8 50%) calc(100% - 18px) 21px / 6px 6px no-repeat,
-                linear-gradient(135deg, #0873a8 50%, transparent 50%) calc(100% - 12px) 21px / 6px 6px no-repeat,
-                linear-gradient(#f7fbfd, #f7fbfd);
-            color: #1d4a65;
-            font-size: 15px;
-            font-weight: 600;
-            box-shadow: 0 2px 8px rgba(32, 96, 130, 0.08);
-            cursor: pointer;
-            appearance: none;
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
         }
 
-        #purchase-order:hover {
-            border-color: #0873a8;
-            background:
-                linear-gradient(45deg, transparent 50%, #0873a8 50%) calc(100% - 18px) 21px / 6px 6px no-repeat,
-                linear-gradient(135deg, #0873a8 50%, transparent 50%) calc(100% - 12px) 21px / 6px 6px no-repeat,
-                linear-gradient(#fff, #fff);
-        }
-
-        #purchase-order option {
+        .purchase-order-trigger {
+            width: 100%;
+            min-height: 76px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 22px;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            border: 1px solid #cbd6de;
+            border-radius: 10px;
+            background: #fff;
             color: #243e55;
-            font-size: 14px;
+            text-align: right;
+            box-shadow: 0 3px 10px rgba(36, 62, 85, 0.06);
+            cursor: pointer;
+        }
+
+        .purchase-order-trigger:hover,
+        .purchase-order-trigger[aria-expanded="true"] {
+            border-color: #1685b8;
+            box-shadow: 0 4px 14px rgba(22, 133, 184, 0.12);
+        }
+
+        .purchase-order-trigger:disabled {
+            cursor: wait;
+            opacity: 0.65;
+        }
+
+        .purchase-order-trigger-title {
+            display: block;
+            color: #243e55;
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .purchase-order-trigger-subtitle {
+            display: block;
+            margin-top: 5px;
+            color: #7a91a1;
+            font-size: 13px;
             font-weight: 400;
+        }
+
+        .purchase-order-trigger-arrow {
+            width: 10px;
+            height: 10px;
+            justify-self: start;
+            border-left: 2px solid #315873;
+            border-bottom: 2px solid #315873;
+            transform: rotate(-45deg);
+            transition: transform 160ms ease;
+        }
+
+        .purchase-order-trigger[aria-expanded="true"] .purchase-order-trigger-arrow {
+            transform: rotate(135deg);
+        }
+
+        .purchase-order-menu {
+            position: absolute;
+            z-index: 30;
+            top: calc(100% + 8px);
+            right: 0;
+            left: 0;
+            max-height: min(420px, 58vh);
+            overflow-y: auto;
+            padding: 8px;
+            border: 1px solid #d7e1e7;
+            border-radius: 12px;
+            background: #fff;
+            box-shadow: 0 12px 32px rgba(36, 62, 85, 0.16);
+        }
+
+        .purchase-order-menu[hidden] {
+            display: none;
+        }
+
+        .purchase-order-option {
+            width: 100%;
+            min-height: 96px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 28px;
+            align-items: center;
+            gap: 10px;
+            margin: 0;
+            padding: 14px 16px;
+            border: 1px solid transparent;
+            border-bottom-color: #edf2f5;
+            border-radius: 8px;
+            background: #fff;
+            color: #243e55;
+            text-align: right;
+            cursor: pointer;
+        }
+
+        .purchase-order-option:last-child {
+            border-bottom-color: transparent;
+        }
+
+        .purchase-order-option:hover,
+        .purchase-order-option:focus-visible {
+            border-color: #cce1ed;
+            background: #f6fbfe;
+            outline: none;
+        }
+
+        .purchase-order-option.is-selected {
+            border-color: #b8d8e9;
+            background: #eef7fb;
+        }
+
+        .purchase-order-option-title {
+            display: block;
+            margin-bottom: 7px;
+            color: #243e55;
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .purchase-order-option-meta {
+            display: block;
+            color: #668095;
+            font-size: 13px;
+            line-height: 1.55;
+        }
+
+        .purchase-order-option-check {
+            width: 18px;
+            height: 18px;
+            justify-self: start;
+            border: 2px solid #1685b8;
+            border-radius: 50%;
+            opacity: 0;
+        }
+
+        .purchase-order-option.is-selected .purchase-order-option-check {
+            opacity: 1;
+            background:
+                linear-gradient(45deg, transparent 42%, #1685b8 43%, #1685b8 58%, transparent 59%)
+                2px 5px / 10px 8px no-repeat;
         }
 
         #invoice-form {
@@ -743,6 +869,44 @@
             .purchase-picker {
                 grid-template-columns: 1fr;
                 gap: 7px;
+            }
+
+            .purchase-order-picker {
+                width: 100%;
+            }
+
+            .purchase-order-trigger {
+                min-height: 68px;
+                padding: 12px 14px;
+            }
+
+            .purchase-order-trigger-title,
+            .purchase-order-option-title {
+                font-size: 15px;
+            }
+
+            .purchase-order-trigger-subtitle,
+            .purchase-order-option-meta {
+                font-size: 12px;
+            }
+
+            .purchase-order-menu {
+                position: absolute;
+                max-height: 52vh;
+            }
+
+            .purchase-order-option {
+                min-height: 88px;
+                padding: 12px;
+            }
+
+            .purchase-summary {
+                grid-template-columns: 1fr;
+            }
+
+            .purchase-detail {
+                grid-template-columns: minmax(110px, 0.45fr) minmax(0, 1fr);
+                align-items: center;
             }
 
             .purchase-order-loading {
@@ -904,6 +1068,18 @@
                         <select id="purchase-order" name="purchaseOrder" required>
                             <option value="">בחירת הזמנת רכש</option>
                         </select>
+                        <div class="purchase-order-picker">
+                            <button type="button" class="purchase-order-trigger" id="purchase-order-trigger"
+                                aria-haspopup="listbox" aria-expanded="false" aria-controls="purchase-order-menu"
+                                disabled>
+                                <span>
+                                    <span class="purchase-order-trigger-title" id="purchase-order-trigger-title">בחירת הזמנת רכש</span>
+                                    <span class="purchase-order-trigger-subtitle" id="purchase-order-trigger-subtitle">יש לבחור הזמנה מהרשימה</span>
+                                </span>
+                                <span class="purchase-order-trigger-arrow" aria-hidden="true"></span>
+                            </button>
+                            <div class="purchase-order-menu" id="purchase-order-menu" role="listbox" hidden></div>
+                        </div>
                         <span class="purchase-order-loading" id="purchase-order-loading" role="status" aria-live="polite" hidden>
                             <span class="loading-spinner" aria-hidden="true"></span>
                             טוען הזמנות רכש...
@@ -1008,6 +1184,10 @@
         const purchaseOrderLoading = document.getElementById('purchase-order-loading');
         const purchaseOrderNoticeText = document.getElementById('purchase-order-notice-text');
         const purchaseOrdersRetryButton = document.getElementById('purchase-orders-retry');
+        const purchaseOrderTrigger = document.getElementById('purchase-order-trigger');
+        const purchaseOrderTriggerTitle = document.getElementById('purchase-order-trigger-title');
+        const purchaseOrderTriggerSubtitle = document.getElementById('purchase-order-trigger-subtitle');
+        const purchaseOrderMenu = document.getElementById('purchase-order-menu');
         const purchaseOrders = new Map();
         let invoiceSubmissionStarted = false;
         let ordersLoading = false;
@@ -1037,6 +1217,61 @@
             return Number.isFinite(amount) ? formatCurrency.format(amount) : '—';
         }
 
+        function closePurchaseOrderMenu() {
+            purchaseOrderMenu.hidden = true;
+            purchaseOrderTrigger.setAttribute('aria-expanded', 'false');
+        }
+
+        function selectPurchaseOrder(orderId) {
+            purchaseOrderSelect.value = orderId;
+            purchaseOrderSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            closePurchaseOrderMenu();
+        }
+
+        function resetPurchaseOrderPicker() {
+            purchaseOrderTrigger.disabled = true;
+            purchaseOrderTriggerTitle.textContent = 'בחירת הזמנת רכש';
+            purchaseOrderTriggerSubtitle.textContent = 'יש לבחור הזמנה מהרשימה';
+            purchaseOrderMenu.replaceChildren();
+            closePurchaseOrderMenu();
+        }
+
+        function renderPurchaseOrderPicker() {
+            purchaseOrderMenu.replaceChildren();
+            for (const order of purchaseOrders.values()) {
+                const projectLabel = [order.projectTitle, order.projectNumber]
+                    .filter((value) => value && value.trim())
+                    .join(' — ');
+                const option = document.createElement('button');
+                option.type = 'button';
+                option.className = 'purchase-order-option';
+                option.setAttribute('role', 'option');
+                option.setAttribute('aria-selected', String(purchaseOrderSelect.value === order.id));
+                option.dataset.orderId = order.id;
+
+                if (purchaseOrderSelect.value === order.id) {
+                    option.classList.add('is-selected');
+                }
+
+                option.innerHTML =
+                    '<span>' +
+                        `<span class="purchase-order-option-title">${escapeHtml(order.title || `הזמנה ${order.orderNumber || order.id}`)}</span>` +
+                        `<span class="purchase-order-option-meta">${escapeHtml(order.orderNumber ? `מספר הזמנה: ${order.orderNumber}` : '')}` +
+                            `${projectLabel ? `${order.orderNumber ? '<br>' : ''}${escapeHtml(`פרויקט: ${projectLabel}`)}` : ''}</span>` +
+                    '</span>' +
+                    '<span class="purchase-order-option-check" aria-hidden="true"></span>';
+                option.addEventListener('click', () => selectPurchaseOrder(order.id));
+                purchaseOrderMenu.appendChild(option);
+            }
+            purchaseOrderTrigger.disabled = purchaseOrders.size === 0;
+        }
+
+        function escapeHtml(value) {
+            const element = document.createElement('span');
+            element.textContent = value;
+            return element.innerHTML;
+        }
+
         function renderPurchaseOrderDetails() {
             const order = purchaseOrders.get(purchaseOrderSelect.value);
             document.getElementById('purchase-order-id').textContent = order
@@ -1058,6 +1293,20 @@
             document.getElementById('purchase-order-remaining').textContent = order
                 ? formatOrderAmount(order.remainingAmount)
                 : '—';
+            if (order) {
+                purchaseOrderTriggerTitle.textContent = order.title || `הזמנה ${order.orderNumber || order.id}`;
+                const projectLabel = [order.projectTitle, order.projectNumber]
+                    .filter((value) => value && value.trim())
+                    .join(' — ');
+                purchaseOrderTriggerSubtitle.textContent = [
+                    order.orderNumber ? `מספר הזמנה: ${order.orderNumber}` : '',
+                    projectLabel ? `פרויקט: ${projectLabel}` : ''
+                ].filter(Boolean).join('  |  ');
+            } else {
+                purchaseOrderTriggerTitle.textContent = 'בחירת הזמנת רכש';
+                purchaseOrderTriggerSubtitle.textContent = 'יש לבחור הזמנה מהרשימה';
+            }
+            renderPurchaseOrderPicker();
             updateInvoiceAmountLimit();
         }
 
@@ -1084,6 +1333,7 @@
             ordersLoading = true;
             ordersLoadFailed = false;
             purchaseOrderSelect.disabled = true;
+            purchaseOrderTrigger.disabled = true;
             purchaseOrderSelect.setAttribute('aria-busy', 'true');
             purchaseOrderLoading.hidden = false;
             purchaseOrdersRetryButton.hidden = true;
@@ -1323,6 +1573,7 @@
                     activeSupplier = supplier;
                     purchaseOrders.clear();
                     purchaseOrderSelect.replaceChildren(new Option('בחירת הזמנת רכש', ''));
+                    resetPurchaseOrderPicker();
                     purchaseOrderSelect.disabled = true;
                     populateCreditInvoiceNumbers([]);
                     document.getElementById('verified-number').value = supplier.supplierNumber;
@@ -1345,6 +1596,48 @@
         });
 
         purchaseOrderSelect.addEventListener('change', renderPurchaseOrderDetails);
+        purchaseOrderTrigger.addEventListener('click', () => {
+            const willOpen = purchaseOrderMenu.hidden;
+            purchaseOrderMenu.hidden = !willOpen;
+            purchaseOrderTrigger.setAttribute('aria-expanded', String(willOpen));
+            if (willOpen) {
+                const selectedOption = purchaseOrderMenu.querySelector('.is-selected');
+                (selectedOption || purchaseOrderMenu.querySelector('[role="option"]'))?.focus();
+            }
+        });
+        purchaseOrderTrigger.addEventListener('keydown', (event) => {
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                purchaseOrderMenu.hidden = false;
+                purchaseOrderTrigger.setAttribute('aria-expanded', 'true');
+                purchaseOrderMenu.querySelector('[role="option"]')?.focus();
+            }
+        });
+        purchaseOrderMenu.addEventListener('keydown', (event) => {
+            const options = Array.from(purchaseOrderMenu.querySelectorAll('[role="option"]'));
+            const currentIndex = options.indexOf(document.activeElement);
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closePurchaseOrderMenu();
+                purchaseOrderTrigger.focus();
+            } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                const direction = event.key === 'ArrowDown' ? 1 : -1;
+                const nextIndex = (currentIndex + direction + options.length) % options.length;
+                options[nextIndex]?.focus();
+            } else if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                if (currentIndex >= 0) {
+                    selectPurchaseOrder(options[currentIndex].dataset.orderId);
+                    purchaseOrderTrigger.focus();
+                }
+            }
+        });
+        document.addEventListener('click', (event) => {
+            if (!event.target.closest('.purchase-order-picker')) {
+                closePurchaseOrderMenu();
+            }
+        });
         documentTypeSelect.addEventListener('change', updateCreditInvoiceField);
         updateCreditInvoiceField();
 
@@ -1669,6 +1962,7 @@
             purchaseOrders.clear();
             populateCreditInvoiceNumbers([]);
             purchaseOrderSelect.replaceChildren(new Option('בחירת הזמנת רכש', ''));
+            resetPurchaseOrderPicker();
             purchaseOrderSelect.disabled = false;
             purchaseOrderNoticeText.textContent = 'פרטי הספק אומתו.';
             purchaseOrderNotice.classList.remove('is-loading');
